@@ -9,7 +9,7 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class NotificationResponse {
+public class NotificationResponseDTO {
   private Long id;
   private NotificationTypeEnum type;
   private String title;

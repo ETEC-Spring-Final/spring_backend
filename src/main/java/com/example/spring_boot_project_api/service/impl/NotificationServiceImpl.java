@@ -4,7 +4,9 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.example.spring_boot_project_api.dto.request.notification.NotificationRequestDTO;
 import com.example.spring_boot_project_api.dto.response.notification.NotificationResponse;
+import com.example.spring_boot_project_api.dto.response.notification.NotificationResponseDTO;
 import com.example.spring_boot_project_api.enums.NotificationTypeEnum;
 import com.example.spring_boot_project_api.model.Notification;
 import com.example.spring_boot_project_api.model.User;
@@ -21,24 +23,28 @@ public class NotificationServiceImpl implements NotificationService {
   private final UserRepository userRepository;
 
   @Override
-  public void createNotification(Long userId, NotificationTypeEnum type, String title, String message) {
-    User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+  public void createNotification(NotificationRequestDTO dto) {
+    User user = userRepository.findById(dto.getUserId()).orElseThrow(() -> new RuntimeException("User not found"));
 
     Notification notification = new Notification();
     notification.setUser(user);
-    notification.setType(type);
-    notification.setTitle(title);
-    notification.setMessage(message);
-    notification.setIsRead(false);
+    notification.setType(dto.getType());
+    notification.setTitle(dto.getTitle());
+    notification.setMessage(dto.getMessage());
 
-    notificationRepository.save(notification);
+    notification saved = notificationRepository.save(notification);
+    return toResponse(saved);
   }
 
   @Override
-  public List<NotificationResponse> getNotificationForUser(Long userId) {
-    return notificationRepository.findById(userId).stream()
-        .map(n -> new NotificationResponse(n.getId(), n.getType(),
-            n.getTitle(), n.getMessage(), n.getIsRead(), n.getCreatedAt()))
+  public List<NotificationResponseDTO> getNotificationsForUser(Long userId) {
+    return notificationRepository.findByUserId(userId).stream()
+        .map(this::toResponse)
         .toList();
+  }
+
+  private NotificationResponseDTO toResponse(Notification n) {
+    return new NotificationResponseDTO(n.getId(), n.getType(), n.getTitle(), n.getMessage(), n.getIsRead(),
+        n.getCreatedAt());
   }
 }

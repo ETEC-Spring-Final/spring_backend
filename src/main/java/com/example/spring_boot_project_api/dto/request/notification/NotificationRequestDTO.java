@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
-public class NotificationRequest {
+public class NotificationRequestDTO {
   @NotNull(message = "Notification type is required")
   private NotificationTypeEnum type;
 
