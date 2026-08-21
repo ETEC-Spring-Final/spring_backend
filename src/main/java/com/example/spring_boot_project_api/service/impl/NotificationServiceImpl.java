@@ -5,9 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.example.spring_boot_project_api.dto.request.notification.NotificationRequestDTO;
-import com.example.spring_boot_project_api.dto.response.notification.NotificationResponse;
 import com.example.spring_boot_project_api.dto.response.notification.NotificationResponseDTO;
-import com.example.spring_boot_project_api.enums.NotificationTypeEnum;
 import com.example.spring_boot_project_api.model.Notification;
 import com.example.spring_boot_project_api.model.User;
 import com.example.spring_boot_project_api.repository.NotificationRepository;
@@ -23,8 +21,8 @@ public class NotificationServiceImpl implements NotificationService {
   private final UserRepository userRepository;
 
   @Override
-  public void createNotification(NotificationRequestDTO dto) {
-    User user = userRepository.findById(dto.getUserId()).orElseThrow(() -> new RuntimeException("User not found"));
+  public NotificationResponseDTO createNotification(Long userId, NotificationRequestDTO dto) {
+    User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
 
     Notification notification = new Notification();
     notification.setUser(user);
@@ -32,7 +30,7 @@ public class NotificationServiceImpl implements NotificationService {
     notification.setTitle(dto.getTitle());
     notification.setMessage(dto.getMessage());
 
-    notification saved = notificationRepository.save(notification);
+    Notification saved = notificationRepository.save(notification);
     return toResponse(saved);
   }
 

@@ -1,8 +1,5 @@
 package com.example.spring_boot_project_api.service.impl;
 
-import java.util.List;
-
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -25,10 +22,6 @@ public class CustomUserDetailsService implements UserDetailsService {
     User user = userRepository.findByEmail(email)
         .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
 
-    return org.springframework.security.core.userdetails.User
-        .withUsername(user.getEmail())
-        .password(user.getPassword())
-        .authorities(List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())))
-        .build();
+    return new CustomUserDetails(user);
   }
 }
