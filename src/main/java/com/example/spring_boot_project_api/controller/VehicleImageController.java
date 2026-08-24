@@ -23,7 +23,7 @@ import com.example.spring_boot_project_api.service.VehicleImageService;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/vehicle_images")
+@RequestMapping("/api/vehicle-images")
 public class VehicleImageController {
   @Autowired
   private VehicleImageService vehicleImageService;
