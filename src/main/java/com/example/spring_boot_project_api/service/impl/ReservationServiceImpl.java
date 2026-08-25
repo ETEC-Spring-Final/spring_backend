@@ -123,6 +123,24 @@ public class ReservationServiceImpl implements ReservationService {
   }
 
   @Override
+  public ReservationResponseDTO cancelReservation(Long id) {
+    Reservation reservation = reservationRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Reservation not found"));
+
+    User currentUser = getCurrentUser();
+    boolean isOwner = reservation.getUser().getId().equals(currentUser.getId());
+    boolean isStaff = currentUser.getRole() != RoleEnum.CUSTOMER;
+
+    if (!isOwner && !isStaff) {
+      throw new RuntimeException("You are not authorized to cancel this reservation");
+    }
+
+    reservation.setStatus(ReservationStatusEnum.CANCELLED);
+    Reservation saved = reservationRepository.save(reservation);
+    return toResponse(saved);
+  }
+
+  @Override
   public ReservationResponseDTO updateReservation(Long id, ReservationRequestDTO dto) {
     Reservation reservation = reservationRepository.findById(id)
         .orElseThrow(() -> new RuntimeException("Reservation not found"));
@@ -177,5 +195,13 @@ public class ReservationServiceImpl implements ReservationService {
         r.getReturnLocation().getId(), r.getPickUpDateTime(), r.getReturnDateTime(), r.getStatus(), r.getTotalPrice(),
         r.getDepositAmount(),
         r.getDiscountAmount(), r.getAdditionalCharges(), r.getNotes(), r.getCreatedAt(), r.getUpdatedAt());
+  }
+
+  // Ownership function
+  private User getCurrentUser() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    String currentUsername = authentication.getName();
+    return userRepository.findByEmail(currentUsername)
+        .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
   }
 }

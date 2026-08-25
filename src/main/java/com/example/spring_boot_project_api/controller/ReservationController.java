@@ -51,10 +51,16 @@ public class ReservationController {
     return reservationService.getMyReservations();
   }
 
+  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
   @PatchMapping("/{id}/status")
   public ReservationResponseDTO changeReservationStatus(@PathVariable Long id,
       @RequestParam ReservationStatusEnum status) {
     return reservationService.changeReservationStatus(id, status);
+  }
+
+  @PatchMapping("/{id}/cancel")
+  public ReservationResponseDTO cancelReservation(@PathVariable Long id) {
+    return reservationService.cancelReservation(id);
   }
 
   @PreAuthorize("hasAnyRole('ADMIN','MANAGER', 'STAFF')")
