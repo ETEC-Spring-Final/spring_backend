@@ -28,6 +28,8 @@ public class ReservationController {
   @Autowired
   private ReservationService reservationService;
 
+  // TODO: check for overlapping reservations on the same vehicle before saving
+  // (prevent double-booking)
   @PostMapping
   public ReservationResponseDTO createReservation(@Valid @RequestBody ReservationRequestDTO dto) {
     return reservationService.createReservation(dto);

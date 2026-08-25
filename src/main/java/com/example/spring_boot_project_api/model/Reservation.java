@@ -47,7 +47,7 @@ public class Reservation {
   @JoinColumn(name = "pick_up_location", nullable = false)
   private Location pickUpLocation;
 
-  @NotBlank
+  @NotNull
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "return_location", nullable = false)
   private Location returnLocation;
