@@ -14,11 +14,19 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
 @Entity
 @Table(name = "tb_vehicle_image")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class VehicleImage {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,9 +40,11 @@ public class VehicleImage {
   @Column(name = "image_url", nullable = false, length = 255)
   private String imageUrl;
 
+  @Builder.Default
   @Column(name = "is_primary")
   private Boolean isPrimary = false;
 
+  @Builder.Default
   @Column(name = "display_order", nullable = false)
   private Integer displayOrder = 0;
 

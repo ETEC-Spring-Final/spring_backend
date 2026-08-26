@@ -21,11 +21,19 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
 @Entity
 @Table(name = "tb_reservations")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Reservation {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,21 +67,25 @@ public class Reservation {
   @Column(name = "return_date_time", nullable = false)
   private LocalDateTime returnDateTime;
 
+  @Builder.Default
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false)
   private ReservationStatusEnum status = ReservationStatusEnum.PENDING;
 
   @NotNull
-  @Column(name = "total_price", nullable = false)
+  @Column(name = "total_price", nullable = false, precision = 10, scale = 2)
   private BigDecimal totalPrice;
 
-  @Column(name = "deposit_amount", nullable = false)
+  @Builder.Default
+  @Column(name = "deposit_amount", nullable = false, precision = 10, scale = 2)
   private BigDecimal depositAmount = BigDecimal.ZERO;
 
-  @Column(name = "discount_amount", nullable = false)
+  @Builder.Default
+  @Column(name = "discount_amount", nullable = false, precision = 10, scale = 2)
   private BigDecimal discountAmount = BigDecimal.ZERO;
 
-  @Column(name = "additional_charges", nullable = false)
+  @Builder.Default
+  @Column(name = "additional_charges", nullable = false, precision = 10, scale = 2)
   private BigDecimal additionalCharges = BigDecimal.ZERO;
 
   @Column(name = "notes", length = 255)

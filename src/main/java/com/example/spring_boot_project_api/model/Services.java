@@ -11,11 +11,19 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
 @Entity
 @Table(name = "tb_services")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Services {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,9 +40,10 @@ public class Services {
   private String description;
 
   @NotNull
-  @Column(name = "price", nullable = false)
+  @Column(name = "price", nullable = false, precision = 10, scale = 2)
   private BigDecimal price;
 
+  @Builder.Default
   @Column(name = "is_active")
   private Boolean isActive = true;
 }

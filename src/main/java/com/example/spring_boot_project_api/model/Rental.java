@@ -22,11 +22,19 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
 @Entity
 @Table(name = "tb_rentals")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Rental {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -68,25 +76,29 @@ public class Rental {
   @Column(name = "actual_return_date_time")
   private LocalDateTime actualReturnDateTime;
 
+  @Builder.Default
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false)
   private RentalStatusEnum status = RentalStatusEnum.PENDING;
 
   @NotNull
-  @Column(name = "base_price", nullable = false)
+  @Column(name = "base_price", nullable = false, precision = 10, scale = 2)
   private BigDecimal basePrice;
 
-  @Column(name = "discount_amount", nullable = false)
+  @Builder.Default
+  @Column(name = "discount_amount", nullable = false, precision = 10, scale = 2)
   private BigDecimal discountAmount = BigDecimal.ZERO;
 
-  @Column(name = "additional_charges", nullable = false)
+  @Builder.Default
+  @Column(name = "additional_charges", nullable = false, precision = 10, scale = 2)
   private BigDecimal additionalCharges = BigDecimal.ZERO;
 
-  @Column(name = "late_fee", nullable = false)
+  @Builder.Default
+  @Column(name = "late_fee", nullable = false, precision = 10, scale = 2)
   private BigDecimal lateFee = BigDecimal.ZERO;
 
   @NotNull
-  @Column(name = "total_price", nullable = false)
+  @Column(name = "total_price", nullable = false, precision = 10, scale = 2)
   private BigDecimal totalPrice;
 
   @Size(max = 255)

@@ -16,11 +16,19 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
 @Entity
 @Table(name = "tb_discounts")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Discount {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,7 +49,7 @@ public class Discount {
   private DiscountTypeEnum type;
 
   @NotNull
-  @Column(name = "value", nullable = false)
+  @Column(name = "value", nullable = false, precision = 10, scale = 2)
   private BigDecimal value;
 
   @NotNull
@@ -54,9 +62,11 @@ public class Discount {
   @Column(name = "max_uses")
   private Integer maxUses;
 
+  @Builder.Default
   @Column(name = "used_count", nullable = false)
   private Integer usedCount = 0;
 
+  @Builder.Default
   @Column(name = "is_active")
   private Boolean isActive = true;
 }

@@ -23,11 +23,19 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
 @Entity
 @Table(name = "tb_maintenance_records")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class MaintenanceRecord {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -56,10 +64,11 @@ public class MaintenanceRecord {
   private LocalDateTime completedDate;
 
   @NotNull
-  @Column(name = "cost", nullable = false)
+  @Column(name = "cost", nullable = false, precision = 10, scale = 2)
   private BigDecimal cost;
 
   @NotNull
+  @Builder.Default
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false)
   private MaintenanceStatusEnum status = MaintenanceStatusEnum.SCHEDULED;

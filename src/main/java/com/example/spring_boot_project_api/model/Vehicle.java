@@ -18,14 +18,23 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
 @Entity
-@jakarta.persistence.Table(name = "tb_vehicles")
+@Table(name = "tb_vehicles")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Vehicle {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -73,11 +82,11 @@ public class Vehicle {
   private Integer seats;
 
   @NotNull
-  @Column(name = "price_per_day", nullable = false)
+  @Column(name = "price_per_day", nullable = false, precision = 10, scale = 2)
   private BigDecimal pricePerDay;
 
   @NotNull
-  @Column(name = "mile_age", nullable = false)
+  @Column(name = "mile_age", nullable = false, precision = 10, scale = 2)
   private Double mileAge;
 
   @NotBlank

@@ -15,15 +15,24 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
 @Entity
-@jakarta.persistence.Table(name = "tb_users")
+@Table(name = "tb_users")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class User {
 
   @Id
@@ -63,12 +72,14 @@ public class User {
 
   @NotNull
   @Enumerated(EnumType.STRING)
+  @Builder.Default
   @Column(name = "role", nullable = false)
   private RoleEnum role = RoleEnum.CUSTOMER;
 
   @Column(name = "profile_picture", length = 255)
   private String profilePicture;
 
+  @Builder.Default
   @Column(name = "active")
   private Boolean active = true;
 
