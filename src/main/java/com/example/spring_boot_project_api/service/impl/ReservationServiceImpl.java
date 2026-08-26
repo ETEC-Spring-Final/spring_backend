@@ -34,11 +34,7 @@ public class ReservationServiceImpl implements ReservationService {
 
   @Override
   public ReservationResponseDTO createReservation(ReservationRequestDTO dto) {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    String currentUsername = authentication.getName();
-
-    User currentUser = userRepository.findByEmail(currentUsername)
-        .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
+    User currentUser = getCurrentUser();
 
     Vehicle vehicle = vehicleRepository.findById(dto.getVehicleId())
         .orElseThrow(() -> new RuntimeException("Vehicle not found"));
@@ -79,10 +75,7 @@ public class ReservationServiceImpl implements ReservationService {
     Reservation reservation = reservationRepository.findById(id)
         .orElseThrow(() -> new RuntimeException("Reservation not found"));
 
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    String currentUsername = authentication.getName();
-    User currentUser = userRepository.findByEmail(currentUsername)
-        .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
+    User currentUser = getCurrentUser();
 
     boolean isOwner = reservation.getUser().getId().equals(currentUser.getId());
     boolean isStaff = currentUser.getRole() != RoleEnum.CUSTOMER;
