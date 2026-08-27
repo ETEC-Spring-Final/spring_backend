@@ -6,12 +6,14 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -19,40 +21,32 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "tb_locations")
+@Table(name = "tb_vehicle_image")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Location {
-
+public class VehicleImage {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @NotBlank
-  @Column(name = "name", nullable = false, length = 100)
-  @Size(max = 100, message = "Garage name cannot exceed 100 characters")
-  private String name;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "vehicle_id", nullable = false)
+  private Vehicle vehicle;
 
   @NotBlank
-  @Column(name = "address", nullable = false, length = 255)
-  @Size(max = 255, message = "Address cannot exceed 255 characters")
-  private String address;
+  @Column(name = "image_url", nullable = false, length = 255)
+  private String imageUrl;
 
-  @NotBlank
-  @Column(name = "city", nullable = false, length = 100)
-  @Size(max = 100, message = "Shop name cannot exceed 100 characters")
-  private String city;
+  @Builder.Default
+  @Column(name = "is_primary")
+  private Boolean isPrimary = false;
 
-  @NotBlank
-  @Column(name = "phone", nullable = false, length = 10)
-  @Size(min = 9, max = 10, message = "Phone number is only 9-10 digits")
-  private String phone;
-
-  @Column(name = "is_active")
-  private Boolean isActive;
+  @Builder.Default
+  @Column(name = "display_order", nullable = false)
+  private Integer displayOrder = 0;
 
   @CreationTimestamp
   @Column(name = "created_at", updatable = false)

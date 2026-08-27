@@ -1,9 +1,14 @@
 package com.example.spring_boot_project_api.model;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+import com.example.spring_boot_project_api.enums.DiscountTypeEnum;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -18,30 +23,48 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "tb_services")
+@Table(name = "tb_discounts")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Services {
+public class Discount {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
   @NotBlank
-  @Column(name = "name", nullable = false, length = 100)
-  @Size(min = 1, max = 100, message = "Service name must be under 100 characters")
-  private String name;
+  @Column(name = "code", nullable = false)
+  private String code;
 
   @NotBlank
   @Column(name = "description", nullable = false, length = 255)
-  @Size(max = 255, message = "Description must be under 255 characters")
+  @Size(max = 255, message = "Description should be under 255 characters")
   private String description;
 
   @NotNull
-  @Column(name = "price", nullable = false, precision = 10, scale = 2)
-  private BigDecimal price;
+  @Enumerated(EnumType.STRING)
+  @Column(name = "type", nullable = false)
+  private DiscountTypeEnum type;
+
+  @NotNull
+  @Column(name = "value", nullable = false, precision = 10, scale = 2)
+  private BigDecimal value;
+
+  @NotNull
+  @Column(name = "valid_from", nullable = false)
+  private LocalDateTime validFrom;
+
+  @Column(name = "valid_to")
+  private LocalDateTime validTo;
+
+  @Column(name = "max_uses")
+  private Integer maxUses;
+
+  @Builder.Default
+  @Column(name = "used_count", nullable = false)
+  private Integer usedCount = 0;
 
   @Builder.Default
   @Column(name = "is_active")

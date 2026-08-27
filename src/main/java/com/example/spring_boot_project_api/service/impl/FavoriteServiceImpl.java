@@ -2,6 +2,8 @@ package com.example.spring_boot_project_api.service.impl;
 
 import java.util.List;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import com.example.spring_boot_project_api.dto.response.favorite.FavoriteResponseDTO;
@@ -25,12 +27,14 @@ public class FavoriteServiceImpl implements FavoriteService {
   private final VehicleRepository vehicleRepository;
 
   @Override
-  public FavoriteResponseDTO addFavorite(Long userId, Long vehicleId) {
-    if (favoriteRepository.existsByUserIdAndVehicleId(userId, vehicleId)) {
+  public FavoriteResponseDTO addFavorite(Long vehicleId) {
+    User currentUser = getCurrentUser();
+
+    if (favoriteRepository.existsByUserIdAndVehicleId(currentUser.getId(), vehicleId)) {
       throw new RuntimeException("Vehicle already in favorites");
     }
 
-    User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+    User user = userRepository.findById(currentUser.getId()).orElseThrow(() -> new RuntimeException("User not found"));
 
     Vehicle vehicle = vehicleRepository.findById(vehicleId)
         .orElseThrow(() -> new RuntimeException("Vehicle not found"));
@@ -44,16 +48,18 @@ public class FavoriteServiceImpl implements FavoriteService {
   }
 
   @Override
-  public List<FavoriteResponseDTO> getFavorites(Long userId) {
-    return favoriteRepository.findByUserId(userId).stream()
+  public List<FavoriteResponseDTO> getFavorites() {
+    User currentUser = getCurrentUser();
+    return favoriteRepository.findByUserId(currentUser.getId()).stream()
         .map(this::toResponse)
         .toList();
   }
 
   @Override
   @Transactional
-  public void removeFavorite(Long userId, Long vehicleId) {
-    favoriteRepository.deleteByUserIdAndVehicleId(userId, vehicleId);
+  public void removeFavorite(Long vehicleId) {
+    User currentUser = getCurrentUser();
+    favoriteRepository.deleteByUserIdAndVehicleId(currentUser.getId(), vehicleId);
   }
 
   private FavoriteResponseDTO toResponse(Favorite f) {
@@ -66,5 +72,13 @@ public class FavoriteServiceImpl implements FavoriteService {
         f.getVehicle().getCreatedAt(), f.getVehicle().getUpdatedAt());
 
     return new FavoriteResponseDTO(f.getId(), vehicleDto, f.getCreatedAt());
+  }
+
+  // Ownership function
+  private User getCurrentUser() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    String currentUsername = authentication.getName();
+    return userRepository.findByEmail(currentUsername)
+        .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
   }
 }

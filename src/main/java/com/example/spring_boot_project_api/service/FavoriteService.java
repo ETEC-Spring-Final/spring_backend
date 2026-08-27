@@ -5,9 +5,9 @@ import java.util.List;
 import com.example.spring_boot_project_api.dto.response.favorite.FavoriteResponseDTO;
 
 public interface FavoriteService {
-  FavoriteResponseDTO addFavorite(Long userId, Long vehicleId);
+  FavoriteResponseDTO addFavorite(Long vehicleId);
 
-  List<FavoriteResponseDTO> getFavorites(Long userId);
+  List<FavoriteResponseDTO> getFavorites();
 
-  void removeFavorite(Long userId, Long vehicleId);
+  void removeFavorite(Long vehicleId);
 }
