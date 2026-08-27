@@ -47,7 +47,7 @@ public class VehicleRequestDTO {
   private BigDecimal pricePerDay;
 
   @NotNull
-  private Double mileAge;
+  private BigDecimal mileAge;
 
   @NotBlank
   private String description;

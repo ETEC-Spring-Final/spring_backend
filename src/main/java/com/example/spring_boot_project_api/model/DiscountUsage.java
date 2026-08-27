@@ -2,6 +2,8 @@ package com.example.spring_boot_project_api.model;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.CreationTimestamp;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -45,7 +47,7 @@ public class DiscountUsage {
   @JoinColumn(name = "reservation_id", nullable = false)
   private Reservation reservation;
 
-  @NotNull
-  @Column(name = "used_at", nullable = false)
+  @CreationTimestamp
+  @Column(name = "used_at", updatable = false)
   private LocalDateTime usedAt;
 }

@@ -85,9 +85,10 @@ public class Vehicle {
   @Column(name = "price_per_day", nullable = false, precision = 10, scale = 2)
   private BigDecimal pricePerDay;
 
+  @Builder.Default
   @NotNull
   @Column(name = "mile_age", nullable = false, precision = 10, scale = 2)
-  private Double mileAge;
+  private BigDecimal mileAge = BigDecimal.ZERO;
 
   @NotBlank
   @Column(name = "description", nullable = false)

@@ -3,16 +3,18 @@ package com.example.spring_boot_project_api.service;
 import java.util.List;
 
 import com.example.spring_boot_project_api.dto.request.discount_usage.DiscountUsageRequestDTO;
-import com.example.spring_boot_project_api.model.DiscountUsage;
+import com.example.spring_boot_project_api.dto.response.discount_usage.DiscountUsageResponseDTO;
 
 public interface DiscountUsageService {
-  DiscountUsage createDiscountUsage(DiscountUsageRequestDTO dto);
+  DiscountUsageResponseDTO createDiscountUsage(DiscountUsageRequestDTO dto);
 
-  DiscountUsage getDiscountUsageById(Long id);
+  DiscountUsageResponseDTO getDiscountUsageById(Long id);
 
-  List<DiscountUsage> getAllDiscountUsages();
+  List<DiscountUsageResponseDTO> getMyDiscountUsages();
 
-  DiscountUsage updateDiscountUsage(Long id, DiscountUsageRequestDTO dto);
+  List<DiscountUsageResponseDTO> getAllDiscountUsages();
+
+  DiscountUsageResponseDTO updateDiscountUsage(Long id, DiscountUsageRequestDTO dto);
 
   void deleteDiscountUsage(Long id);
 }

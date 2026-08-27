@@ -25,7 +25,7 @@ public class VehicleResponseDTO {
   private FuelTypeEnum fuelType;
   private Integer seats;
   private BigDecimal pricePerDay;
-  private Double mileAge;
+  private BigDecimal mileAge;
   private String description;
   private StatusEnum status;
   private LocalDateTime createdAt;
