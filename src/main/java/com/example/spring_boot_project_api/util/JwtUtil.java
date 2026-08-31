@@ -1,7 +1,9 @@
 package com.example.spring_boot_project_api.util;
 
-import java.security.Key;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
+
+import javax.crypto.SecretKey;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -15,14 +17,17 @@ import io.jsonwebtoken.security.Keys;
 @Component
 public class JwtUtil {
 
-  @Value("${jwt.secret}")
+  // Added default fallback values using the : operator in case properties are
+  // missing
+  @Value("${jwt.secret:${JWT_SECRET:myVerySecretKeyThatIsAtLeast32BytesLongForHS256Algorithm!}}")
   private String secret;
 
-  @Value("${jwt.expiration}")
+  @Value("${jwt.expiration:${JWT_EXPIRE:86400000}}")
   private long expiration;
 
-  private Key getSigningKey() {
-    return Keys.hmacShaKeyFor(secret.getBytes());
+  // Use explicit UTF_8 encoding and cast directly to SecretKey
+  private SecretKey getSigningKey() {
+    return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
   }
 
   public String generateToken(User user) {
