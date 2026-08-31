@@ -12,8 +12,10 @@ import com.example.spring_boot_project_api.model.PasswordResetToken;
 import com.example.spring_boot_project_api.model.User;
 import com.example.spring_boot_project_api.repository.PasswordResetRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
+import com.example.spring_boot_project_api.service.EmailService;
 import com.example.spring_boot_project_api.service.PasswordResetService;
 
+import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -22,6 +24,8 @@ public class PasswordResetServiceImpl implements PasswordResetService {
   private final PasswordResetRepository passwordResetRepository;
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
+
+  private final EmailService emailService;
 
   @Override
   public String requestPasswordReset(ForgotPasswordRequestDTO dto) {
@@ -34,10 +38,15 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     resetToken.setUser(user);
     resetToken.setToken(token);
     resetToken.setExpiresAt(LocalDateTime.now().plusMinutes(15));
-
     passwordResetRepository.save(resetToken);
 
-    return token; // TEMP: returned directly since email isn't configured
+    try {
+      emailService.sendPasswordResetEmail(user.getEmail(), token);
+    } catch (MessagingException e) {
+      throw new RuntimeException("Failed to send email: " + e.getMessage());
+    }
+
+    return "Password reset email sent"; // or void, if you don't need to return anything now
   }
 
   @Override
