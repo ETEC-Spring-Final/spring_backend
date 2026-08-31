@@ -10,10 +10,6 @@ public class ReviewRequestDTO {
   @NotNull
   private Long rentalId;
 
-  @NotNull
-  private Long vehicleId;
-
-  @Min(1)
   @Max(5)
   private Integer rating;
 
