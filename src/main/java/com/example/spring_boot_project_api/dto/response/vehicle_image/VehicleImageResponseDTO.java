@@ -1,6 +1,6 @@
 package com.example.spring_boot_project_api.dto.response.vehicle_image;
 
-import java.time.LocalDateTime;
+import com.example.spring_boot_project_api.dto.response.attachment.AttachmentResponseDTO;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -10,8 +10,5 @@ import lombok.Data;
 public class VehicleImageResponseDTO {
   private Long id;
   private Long vehicleId;
-  private String imageUrl;
-  private Boolean isPrimary;
-  private Integer displayOrder;
-  private LocalDateTime createdAt;
+  private AttachmentResponseDTO attachment;
 }
