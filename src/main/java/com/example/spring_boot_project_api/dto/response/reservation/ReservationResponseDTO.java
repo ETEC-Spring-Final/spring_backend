@@ -20,7 +20,7 @@ public class ReservationResponseDTO {
   private LocalDateTime returnDateTime;
   private ReservationStatusEnum status;
   private BigDecimal totalPrice;
-  private BigDecimal depositDecimal;
+  private BigDecimal depositAmount;
   private BigDecimal discountAmount;
   private BigDecimal additionalCharges;
   private String notes;
