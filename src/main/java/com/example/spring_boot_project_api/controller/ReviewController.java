@@ -1,5 +1,6 @@
 package com.example.spring_boot_project_api.controller;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -50,7 +51,7 @@ public class ReviewController {
 
   @GetMapping("/vehicle/{vehicleId}")
   public Page<ReviewResponseDTO> getReviewsByVehicleId(@PathVariable Long vehicleId,
-      @PageableDefault(size = 8, sort = "rating", direction = Sort.Direction.DESC) Pageable pageable) {
+      @ParameterObject @PageableDefault(size = 8, sort = "rating", direction = Sort.Direction.DESC) Pageable pageable) {
     return reviewService.getReviewsByVehicleId(vehicleId, pageable);
   }
 
@@ -60,14 +61,15 @@ public class ReviewController {
   }
 
   @GetMapping("/my-reviews")
-  public Page<ReviewResponseDTO> getMyReviews(Pageable pageable) {
+  public Page<ReviewResponseDTO> getMyReviews(
+      @ParameterObject @PageableDefault(size = 8, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
     return reviewService.getMyReviews(pageable);
   }
 
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
   @GetMapping
   public Page<ReviewResponseDTO> getAllReviews(
-      @PageableDefault(size = 8, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+      @ParameterObject @PageableDefault(size = 8, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
     return reviewService.getAllReviews(pageable);
   }
 }

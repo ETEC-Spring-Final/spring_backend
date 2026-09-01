@@ -2,6 +2,7 @@ package com.example.spring_boot_project_api.controller;
 
 import java.util.List;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -61,13 +62,13 @@ public class InspectionController {
   @GetMapping("/type")
   public Page<InspectionResponseDTO> getInspectionsByType(
       @RequestParam InspectionTypeEnum type,
-      @PageableDefault(size = 8, sort = "inspectedAt", direction = Sort.Direction.DESC) Pageable pageable) {
+      @ParameterObject @PageableDefault(size = 8, sort = "inspectedAt", direction = Sort.Direction.DESC) Pageable pageable) {
     return inspectionService.getInspectionsByType(type, pageable);
   }
 
   @GetMapping
   public Page<InspectionResponseDTO> getAllInspections(
-      @PageableDefault(size = 8, sort = "inspectedAt", direction = Sort.Direction.DESC) Pageable pageable) {
+      @ParameterObject @PageableDefault(size = 8, sort = "inspectedAt", direction = Sort.Direction.DESC) Pageable pageable) {
     return inspectionService.getAllInspections(pageable);
   }
 }
