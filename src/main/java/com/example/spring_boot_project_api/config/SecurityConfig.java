@@ -18,7 +18,6 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-  // Register PasswordEncoder bean to fix the missing dependency error
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
@@ -30,7 +29,17 @@ public class SecurityConfig {
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .csrf(AbstractHttpConfigurer::disable)
         .authorizeHttpRequests(auth -> auth
+            // Public Application Endpoints
             .requestMatchers("/api/v1/bakong/**").permitAll()
+            .requestMatchers("/api/auth/**").permitAll()
+
+            // Swagger UI & OpenAPI Docs
+            .requestMatchers(
+                "/v3/api-docs/**",
+                "/swagger-ui/**",
+                "/swagger-ui.html")
+            .permitAll()
+
             .anyRequest().permitAll());
 
     return http.build();
@@ -39,9 +48,10 @@ public class SecurityConfig {
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOrigins(List.of("*"));
-    configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+    configuration.setAllowedOriginPatterns(List.of("*"));
+    configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
     configuration.setAllowedHeaders(List.of("*"));
+    configuration.setAllowCredentials(true);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", configuration);
