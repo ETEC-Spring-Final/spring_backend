@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bakong KHQR Payment Test</title>
+    <style>
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #121212;
+        color: #e0e0e0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+      }
+      .card {
+        background: #1e1e1e;
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+        border: 1px solid #333;
+      }
+      h2 {
+        margin-top: 0;
+        color: #fff;
+      }
+      .form-group {
+        margin-bottom: 1rem;
+        text-align: left;
+      }
+      label {
+        display: block;
+        font-size: 0.85rem;
+        margin-bottom: 0.3rem;
+        color: #aaa;
+      }
+      input,
+      select {
+        width: 100%;
+        padding: 0.6rem;
+        border-radius: 6px;
+        border: 1px solid #444;
+        background: #2a2a2a;
+        color: #fff;
+        box-sizing: border-box;
+      }
+      button {
+        width: 100%;
+        padding: 0.75rem;
+        border: none;
+        border-radius: 6px;
+        background: #e61c24;
+        color: #fff;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 1rem;
+        transition: background 0.2s;
+      }
+      button:hover {
+        background: #c1171e;
+      }
+      button:disabled {
+        background: #444;
+        cursor: not-allowed;
+      }
+      #qrContainer {
+        margin-top: 1.5rem;
+        display: none;
+        position: relative;
+      }
+      .qr-wrapper {
+        position: relative;
+        display: inline-block;
+      }
+      #qrImage {
+        width: 220px;
+        height: 220px;
+        border-radius: 8px;
+        border: 4px solid #fff;
+        background: #fff;
+      }
+      /* Paid Badge Overlay */
+      .paid-stamp {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-12deg);
+        border: 4px solid #2b8a3e;
+        color: #2b8a3e;
+        font-size: 2rem;
+        font-weight: 900;
+        padding: 0.2rem 1rem;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.9);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+      .status-box {
+        margin-top: 1rem;
+        padding: 0.6rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        background: #2a2a2a;
+        word-break: break-all;
+      }
+      .status-paid {
+        background: #1b4332;
+        color: #52b788;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h2>Bakong KHQR Test</h2>
+
+      <div class="form-group">
+        <label for="vehicleSelect">Select Rental Vehicle</label>
+        <select id="vehicleSelect" onchange="updateSelectedVehicle()">
+          <option value="1" data-name="Tesla Model 3" data-price="0.01">
+            Tesla Model 3 ($0.01/day)
+          </option>
+          <option value="2" data-name="Ford Mustang" data-price="0.02">
+            Ford Mustang ($0.02/day)
+          </option>
+          <option value="3" data-name="Toyota Prius" data-price="100">
+            Toyota Prius (Riel 100/day)
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Amount</label>
+        <input type="number" id="amount" value="0.01" step="0.01" readonly />
+      </div>
+
+      <div class="form-group">
+        <label>Currency</label>
+        <select id="currency">
+          <option value="USD">USD</option>
+          <option value="KHR">KHR</option>
+        </select>
+      </div>
+
+      <button id="generateBtn" onclick="generateQR()">Generate KHQR</button>
+
+      <div id="qrContainer">
+        <div class="qr-wrapper">
+          <img id="qrImage" src="" alt="KHQR Code" />
+          <div id="paidBadge" class="paid-stamp">PAID</div>
+        </div>
+        <div class="status-box" id="md5Display">MD5: -</div>
+        <div class="status-box" id="statusResult">
+          Status: Waiting for scan...
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = "http://localhost:8080/api/v1/bakong";
+      let currentMd5 = "";
+      let pollInterval = null;
+
+      function updateSelectedVehicle() {
+        const select = document.getElementById("vehicleSelect");
+        const selectedOption = select.options[select.selectedIndex];
+        document.getElementById("amount").value =
+          selectedOption.getAttribute("data-price");
+      }
+
+      async function generateQR() {
+        // Clear existing polling loop if active
+        if (pollInterval) clearInterval(pollInterval);
+
+        // Reset UI elements
+        document.getElementById("paidBadge").style.display = "none";
+        document.getElementById("qrImage").style.opacity = "1";
+        document.getElementById("vehicleSelect").disabled = false;
+        document.getElementById("generateBtn").disabled = false;
+
+        const select = document.getElementById("vehicleSelect");
+        const selectedOption = select.options[select.selectedIndex];
+
+        const vehicleId = select.value;
+        const vehicleName = selectedOption.getAttribute("data-name");
+        const vehiclePrice = parseFloat(
+          selectedOption.getAttribute("data-price"),
+        );
+        const selectedCurrency = document.getElementById("currency").value;
+
+        const payload = {
+          amount: vehiclePrice,
+          currency: selectedCurrency,
+          merchantName: "Luxe Ride",
+          merchantCity: "Phnom Penh",
+          billNumber: "RENTAL-" + vehicleId,
+          storeLabel: vehicleName,
+          expirationTimestamp: 15,
+        };
+
+        try {
+          const response = await fetch(`${API_BASE}/generate-qr`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            alert(
+              `HTTP ${response.status} Error: ${errorText || "No response body"}`,
+            );
+            return;
+          }
+
+          const responseData = await response.json();
+          const khqrData = responseData.data || responseData;
+
+          currentMd5 = khqrData.md5;
+          document.getElementById("md5Display").innerText =
+            `MD5: ${currentMd5 || "N/A"}`;
+
+          // Fetch QR PNG Image
+          const imgResponse = await fetch(`${API_BASE}/qr-image`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(khqrData),
+          });
+
+          if (!imgResponse.ok) {
+            alert(`Error fetching QR image: HTTP ${imgResponse.status}`);
+            return;
+          }
+
+          const blob = await imgResponse.blob();
+          document.getElementById("qrImage").src = URL.createObjectURL(blob);
+          document.getElementById("qrContainer").style.display = "block";
+
+          const statusElem = document.getElementById("statusResult");
+          statusElem.innerText = "Status: Waiting for scan...";
+          statusElem.className = "status-box";
+
+          // Start checking transaction status every 3 seconds automatically
+          startPollingStatus();
+        } catch (err) {
+          alert("Error generating QR: " + err.message);
+        }
+      }
+
+      function startPollingStatus() {
+        pollInterval = setInterval(async () => {
+          if (!currentMd5) return;
+
+          try {
+            const response = await fetch(`${API_BASE}/check-transaction`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ md5: currentMd5 }),
+            });
+
+            const result = await response.json();
+
+            // Bakong returns status code 0 (or response code 0) when transaction succeeded
+            if (
+              result &&
+              (result.responseCode === 0 ||
+                result.status === 0 ||
+                result.data?.status === "SUCCESS")
+            ) {
+              clearInterval(pollInterval);
+              markAsPaid();
+            }
+          } catch (err) {
+            console.error("Polling error:", err);
+          }
+        }, 3000); // Poll every 3 seconds
+      }
+
+      function markAsPaid() {
+        // Show PAID Stamp and dim QR image
+        document.getElementById("paidBadge").style.display = "block";
+        document.getElementById("qrImage").style.opacity = "0.3";
+
+        // Update status box text & style
+        const statusElem = document.getElementById("statusResult");
+        statusElem.innerText = "Status: PAYMENT RECEIVED 🎉";
+        statusElem.className = "status-box status-paid";
+
+        // Disable input controls to prevent double-payment
+        document.getElementById("vehicleSelect").disabled = true;
+        document.getElementById("generateBtn").disabled = true;
+      }
+    </script>
+  </body>
+</html>
