@@ -36,3 +36,5 @@ build/
 
 uploads/*
 !uploads/.gitkeep
+
+test.html
