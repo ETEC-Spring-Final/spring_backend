@@ -25,7 +25,7 @@ git init
 
 ### Prerequisites
 
-- JDK 21.
+- JDK 21
 - MySQL running locally (or update `src/main/resources/application.properties` to point at
   your instance)
 
