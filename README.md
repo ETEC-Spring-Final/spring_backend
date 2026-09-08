@@ -1,7 +1,7 @@
 # Spring Boot Project API
 
 A Spring Boot REST API built with Java 21, Spring Data JPA, MySQL, and springdoc-openapi
-(Swagger UI).
+(Swagger-UI).
 
 ## Tech stack
 
