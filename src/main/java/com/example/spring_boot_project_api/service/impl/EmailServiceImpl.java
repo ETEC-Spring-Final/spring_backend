@@ -20,7 +20,7 @@ public class EmailServiceImpl implements EmailService {
     MimeMessage message = mailSender.createMimeMessage();
     MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-    String resetLink = "http://localhost:3000/reset-password?token=" + token;
+    String resetLink = "http://localhost:5173/reset-password?token=" + token;
 
     helper.setTo(toEmail);
     helper.setSubject("Password Reset Request");
