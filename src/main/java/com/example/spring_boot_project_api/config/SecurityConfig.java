@@ -26,7 +26,10 @@ public class SecurityConfig {
   }
 
   @Bean
-  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+  public SecurityFilterChain filterChain(
+      HttpSecurity http,
+      CustomOAuth2UserService customOAuth2UserService,
+      OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler) throws Exception {
     http
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .csrf(AbstractHttpConfigurer::disable)
@@ -35,6 +38,9 @@ public class SecurityConfig {
             .requestMatchers("/api/v1/bakong/**").permitAll()
             .requestMatchers("/api/auth/**").permitAll()
 
+            // OAuth2 endpoints (authorization request + provider callback)
+            .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+
             // Swagger UI & OpenAPI Docs
             .requestMatchers(
                 "/v3/api-docs/**",
@@ -42,7 +48,11 @@ public class SecurityConfig {
                 "/swagger-ui.html")
             .permitAll()
 
-            .anyRequest().permitAll());
+            .anyRequest().permitAll())
+        // NEW: OAuth2 login (Google / Facebook)
+        .oauth2Login(oauth2 -> oauth2
+            .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+            .successHandler(oAuth2AuthenticationSuccessHandler));
 
     return http.build();
   }
@@ -60,3 +70,41 @@ public class SecurityConfig {
     return source;
   }
 }
+
+/* ============================================================================
+   1) Add to pom.xml (inside <dependencies>):
+   ============================================================================
+
+   <dependency>
+       <groupId>org.springframework.boot</groupId>
+       <artifactId>spring-boot-starter-oauth2-client</artifactId>
+   </dependency>
+
+
+   ============================================================================
+   2) Add to application.properties (values come from .env, same pattern as
+      MAIL_USERNAME/MAIL_PASSWORD already use):
+   ============================================================================
+
+   spring.security.oauth2.client.registration.google.client-id=${GOOGLE_CLIENT_ID}
+   spring.security.oauth2.client.registration.google.client-secret=${GOOGLE_CLIENT_SECRET}
+   spring.security.oauth2.client.registration.google.scope=email,profile
+
+   spring.security.oauth2.client.registration.facebook.client-id=${FACEBOOK_CLIENT_ID}
+   spring.security.oauth2.client.registration.facebook.client-secret=${FACEBOOK_CLIENT_SECRET}
+   spring.security.oauth2.client.registration.facebook.scope=email,public_profile
+
+   app.oauth2.redirect-uri=${OAUTH2_REDIRECT_URI:http://localhost:5173/oauth2/redirect}
+
+
+   ============================================================================
+   3) Add to .env (and .env.example, WITHOUT real values):
+   ============================================================================
+
+   GOOGLE_CLIENT_ID=
+   GOOGLE_CLIENT_SECRET=
+   FACEBOOK_CLIENT_ID=
+   FACEBOOK_CLIENT_SECRET=
+   OAUTH2_REDIRECT_URI=http://localhost:5173/oauth2/redirect
+
+   ============================================================================ */

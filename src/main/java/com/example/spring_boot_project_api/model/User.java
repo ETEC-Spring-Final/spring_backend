@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import com.example.spring_boot_project_api.enums.AuthProviderEnum;
 import com.example.spring_boot_project_api.enums.GenderEnum;
 import com.example.spring_boot_project_api.enums.RoleEnum;
 
@@ -82,6 +83,20 @@ public class User {
   @Builder.Default
   @Column(name = "active")
   private Boolean active = true;
+
+  // ===== OAuth2 support (Google / Facebook login) =====
+  // LOCAL = registered with email/password (default for existing users).
+  // GOOGLE / FACEBOOK = account created or linked via OAuth2 login.
+  @NotNull
+  @Enumerated(EnumType.STRING)
+  @Builder.Default
+  @Column(name = "auth_provider", nullable = false)
+  private AuthProviderEnum authProvider = AuthProviderEnum.LOCAL;
+
+  // The unique user ID returned by the OAuth provider (Google "sub" claim,
+  // Facebook "id" field). Null for LOCAL accounts.
+  @Column(name = "provider_id", length = 100)
+  private String providerId;
 
   @CreationTimestamp
   @Column(name = "created_at", updatable = false)
