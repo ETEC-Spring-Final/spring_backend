@@ -1,5 +1,7 @@
 package com.example.spring_boot_project_api.service.impl;
 
+import java.util.List;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,6 +11,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import com.example.spring_boot_project_api.dto.request.user.LoginRequestDTO;
 import com.example.spring_boot_project_api.dto.request.user.RegisterRequestDTO;
 import com.example.spring_boot_project_api.dto.response.user.AuthResponseDTO;
+import com.example.spring_boot_project_api.dto.response.user.UserResponseDTO;
 import com.example.spring_boot_project_api.enums.RoleEnum;
 import com.example.spring_boot_project_api.model.User;
 import com.example.spring_boot_project_api.repository.UserRepository;
@@ -73,6 +76,66 @@ public class UserServiceImpl implements UserService {
     String token = jwtUtil.generateToken(user);
     return new AuthResponseDTO(user.getId(), user.getEmail(), user.getRole().name(), token);
   }
+
+  // ===== New: Customer / User management =====
+
+  @Override
+  public List<UserResponseDTO> getAllUsers() {
+    return userRepository.findAll().stream().map(this::toResponseDTO).toList();
+  }
+
+  @Override
+  public UserResponseDTO getUserById(Long id) {
+    User user = userRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("User not found"));
+    return toResponseDTO(user);
+  }
+
+  @Override
+  @Transactional
+  public UserResponseDTO updateUserRole(Long id, RoleEnum role) {
+    User user = userRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("User not found"));
+    user.setRole(role);
+    return toResponseDTO(userRepository.save(user));
+  }
+
+  @Override
+  @Transactional
+  public UserResponseDTO setUserActive(Long id, boolean active) {
+    User user = userRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("User not found"));
+    user.setActive(active);
+    return toResponseDTO(userRepository.save(user));
+  }
+
+  @Override
+  @Transactional
+  public void deleteUser(Long id) {
+    if (!userRepository.existsById(id)) {
+      throw new RuntimeException("User not found");
+    }
+    userRepository.deleteById(id);
+  }
+
+  private UserResponseDTO toResponseDTO(User user) {
+    return UserResponseDTO.builder()
+        .id(user.getId())
+        .firstName(user.getFirstName())
+        .lastName(user.getLastName())
+        .email(user.getEmail())
+        .phone(user.getPhone())
+        .gender(user.getGender() != null ? user.getGender().name() : null)
+        .role(user.getRole().name())
+        .profilePicture(user.getProfilePicture())
+        .active(user.getActive())
+        .authProvider(user.getAuthProvider() != null ? user.getAuthProvider().name() : null)
+        .createdAt(user.getCreatedAt())
+        .updatedAt(user.getUpdatedAt())
+        .build();
+  }
+
+  // ===== Existing private helpers =====
 
   private HttpServletRequest getCurrentHttpRequest() {
     ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
