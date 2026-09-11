@@ -11,6 +11,8 @@ import lombok.Data;
 @AllArgsConstructor
 public class NotificationResponseDTO {
   private Long id;
+  private Long userId;
+  private String userEmail;
   private NotificationTypeEnum type;
   private String title;
   private String message;

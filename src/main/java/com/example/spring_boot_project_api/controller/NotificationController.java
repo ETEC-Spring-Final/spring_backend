@@ -36,4 +36,10 @@ public class NotificationController {
   public List<NotificationResponseDTO> getNotificationsForUser(@AuthenticationPrincipal CustomUserDetails userDetails) {
     return notificationService.getNotificationsForUser(userDetails.getId());
   }
+
+  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+  @GetMapping
+  public List<NotificationResponseDTO> getAllNotifications() {
+    return notificationService.getAllNotifications();
+  }
 }

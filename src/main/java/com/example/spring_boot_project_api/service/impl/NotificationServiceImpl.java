@@ -41,8 +41,22 @@ public class NotificationServiceImpl implements NotificationService {
         .toList();
   }
 
+  @Override
+  public List<NotificationResponseDTO> getAllNotifications() {
+    return notificationRepository.findAll().stream()
+        .map(this::toResponse)
+        .toList();
+  }
+
   private NotificationResponseDTO toResponse(Notification n) {
-    return new NotificationResponseDTO(n.getId(), n.getType(), n.getTitle(), n.getMessage(), n.getIsRead(),
+    return new NotificationResponseDTO(
+        n.getId(),
+        n.getUser() != null ? n.getUser().getId() : null,
+        n.getUser() != null ? n.getUser().getEmail() : null,
+        n.getType(),
+        n.getTitle(),
+        n.getMessage(),
+        n.getIsRead(),
         n.getCreatedAt());
   }
 }

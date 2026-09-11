@@ -9,4 +9,6 @@ public interface NotificationService {
   NotificationResponseDTO createNotification(Long userId, NotificationRequestDTO dto);
 
   List<NotificationResponseDTO> getNotificationsForUser(Long userId);
+  
+   List<NotificationResponseDTO> getAllNotifications();
 }
