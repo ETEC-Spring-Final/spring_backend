@@ -44,6 +44,12 @@ public class VehicleRequestDTO {
   private Integer seats;
 
   @NotNull
+  private Integer doors;
+
+  @NotNull
+  private Integer luggages;
+
+  @NotNull
   private BigDecimal pricePerDay;
 
   @NotNull

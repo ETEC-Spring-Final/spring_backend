@@ -24,6 +24,8 @@ public class VehicleResponseDTO {
   private TransmissionEnum transmission;
   private FuelTypeEnum fuelType;
   private Integer seats;
+  private Integer doors;
+  private Integer luggages;
   private BigDecimal pricePerDay;
   private BigDecimal mileAge;
   private String description;

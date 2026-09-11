@@ -82,6 +82,14 @@ public class Vehicle {
   private Integer seats;
 
   @NotNull
+  @Column(name = "doors", nullable = false)
+  private Integer doors;
+
+  @NotNull
+  @Column(name = "luggages", nullable = false)
+  private Integer luggages;
+
+  @NotNull
   @Column(name = "price_per_day", nullable = false, precision = 10, scale = 2)
   private BigDecimal pricePerDay;
 

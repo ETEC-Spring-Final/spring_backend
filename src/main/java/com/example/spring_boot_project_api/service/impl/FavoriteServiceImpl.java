@@ -67,7 +67,9 @@ public class FavoriteServiceImpl implements FavoriteService {
         f.getVehicle().getId(), f.getVehicle().getBrand(), f.getVehicle().getModel(),
         f.getVehicle().getYearOfManufacture(), f.getVehicle().getLicensePlate(),
         f.getVehicle().getColor(), f.getVehicle().getType(), f.getVehicle().getTransmission(),
-        f.getVehicle().getFuelType(), f.getVehicle().getSeats(), f.getVehicle().getPricePerDay(),
+        f.getVehicle().getFuelType(), f.getVehicle().getSeats(), f.getVehicle().getDoors(),
+        f.getVehicle().getLuggages(),
+        f.getVehicle().getPricePerDay(),
         f.getVehicle().getMileAge(), f.getVehicle().getDescription(), f.getVehicle().getStatus(),
         f.getVehicle().getCreatedAt(), f.getVehicle().getUpdatedAt());
 
