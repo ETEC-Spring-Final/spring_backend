@@ -50,12 +50,15 @@ public class LocationServiceImpl implements LocationService {
 
   @Override
   public LocationResponseDTO updateLocation(Long id, LocationRequestDTO dto) {
-    locationRepository.findByAddress(dto.getAddress()).filter(existing -> !existing.getId().equals(id))
+    Location location = locationRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Location not found"));
+
+    locationRepository.findByAddress(dto.getAddress())
+        .filter(existing -> !existing.getId().equals(id))
         .ifPresent(existing -> {
           throw new RuntimeException("A location with that address already exists");
         });
 
-    Location location = new Location();
     location.setName(dto.getName());
     location.setAddress(dto.getAddress());
     location.setCity(dto.getCity());
