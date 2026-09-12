@@ -6,7 +6,9 @@ import org.springframework.stereotype.Service;
 
 import com.example.spring_boot_project_api.dto.request.vehicle.VehicleRequestDTO;
 import com.example.spring_boot_project_api.dto.response.vehicle.VehicleResponseDTO;
+import com.example.spring_boot_project_api.model.Brand;
 import com.example.spring_boot_project_api.model.Vehicle;
+import com.example.spring_boot_project_api.repository.BrandRepository;
 import com.example.spring_boot_project_api.repository.VehicleRepository;
 import com.example.spring_boot_project_api.service.VehicleService;
 
@@ -16,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class VehicleServiceImpl implements VehicleService {
   private final VehicleRepository vehicleRepository;
+  private final BrandRepository brandRepository;
 
   @Override
   public VehicleResponseDTO createVehicle(VehicleRequestDTO dto) {
@@ -23,12 +26,16 @@ public class VehicleServiceImpl implements VehicleService {
       throw new RuntimeException("Vehicle with that license plate already exists");
     }
 
+    Brand brand = brandRepository.findById(dto.getBrandId()).orElseThrow(() -> new RuntimeException("Brand not found"));
+
     Vehicle vehicle = new Vehicle();
-    vehicle.setBrand(dto.getBrand());
+    vehicle.setBrand(brand);
     vehicle.setModel(dto.getModel());
     vehicle.setYearOfManufacture(dto.getYearOfManufacture());
     vehicle.setLicensePlate(dto.getLicensePlate());
     vehicle.setColor(dto.getColor());
+    vehicle.setDoors(dto.getDoors());
+    vehicle.setLuggages(dto.getLuggages());
     vehicle.setType(dto.getType());
     vehicle.setTransmission(dto.getTransmission());
     vehicle.setFuelType(dto.getFuelType());
@@ -57,14 +64,25 @@ public class VehicleServiceImpl implements VehicleService {
   }
 
   @Override
+  public List<VehicleResponseDTO> getAllVehiclesByBrand(Long brandId) {
+    return vehicleRepository.findByBrandId(brandId).stream().map(this::toResponse)
+        .toList();
+  }
+
+  @Override
   public VehicleResponseDTO updateVehicle(Long id, VehicleRequestDTO dto) {
     Vehicle vehicle = vehicleRepository.findById(id).orElseThrow(() -> new RuntimeException("Vehicle not found"));
 
-    vehicle.setBrand(dto.getBrand());
+    Brand brand = brandRepository.findById(dto.getBrandId())
+        .orElseThrow(() -> new RuntimeException("Brand not found"));
+
+    vehicle.setBrand(brand);
     vehicle.setModel(dto.getModel());
     vehicle.setYearOfManufacture(dto.getYearOfManufacture());
     vehicle.setLicensePlate(dto.getLicensePlate());
     vehicle.setColor(dto.getColor());
+    vehicle.setDoors(dto.getDoors());
+    vehicle.setLuggages(dto.getLuggages());
     vehicle.setType(dto.getType());
     vehicle.setTransmission(dto.getTransmission());
     vehicle.setFuelType(dto.getFuelType());
@@ -87,7 +105,9 @@ public class VehicleServiceImpl implements VehicleService {
   }
 
   private VehicleResponseDTO toResponse(Vehicle v) {
-    return new VehicleResponseDTO(v.getId(), v.getBrand(), v.getModel(), v.getYearOfManufacture(), v.getLicensePlate(),
+    return new VehicleResponseDTO(v.getId(), v.getBrand().getId(), v.getBrand().getName(), v.getModel(),
+        v.getYearOfManufacture(),
+        v.getLicensePlate(),
         v.getColor(), v.getType(), v.getTransmission(), v.getFuelType(), v.getSeats(), v.getDoors(), v.getLuggages(),
         v.getPricePerDay(),
         v.getMileAge(), v.getDescription(), v.getStatus(), v.getCreatedAt(), v.getUpdatedAt());

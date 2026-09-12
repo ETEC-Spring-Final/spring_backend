@@ -15,7 +15,8 @@ import lombok.Data;
 @AllArgsConstructor
 public class VehicleResponseDTO {
   private Long id;
-  private String brand;
+  private Long brandId;
+  private String brandName;
   private String model;
   private Integer yearOfManufacture;
   private String licensePlate;

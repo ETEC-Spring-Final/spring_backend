@@ -18,6 +18,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -40,10 +42,9 @@ public class Vehicle {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @NotBlank
-  @Column(name = "brand", nullable = false, length = 50)
-  @Size(max = 50, message = "Brand must be under 50 characters")
-  private String brand;
+  @ManyToOne
+  @JoinColumn(name = "brand_id", nullable = false)
+  private Brand brand;
 
   @NotBlank
   @Column(name = "model", nullable = false, length = 50)

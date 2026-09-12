@@ -64,7 +64,8 @@ public class FavoriteServiceImpl implements FavoriteService {
 
   private FavoriteResponseDTO toResponse(Favorite f) {
     VehicleResponseDTO vehicleDto = new VehicleResponseDTO(
-        f.getVehicle().getId(), f.getVehicle().getBrand(), f.getVehicle().getModel(),
+        f.getVehicle().getId(), f.getVehicle().getBrand().getId(), f.getVehicle().getBrand().getName(),
+        f.getVehicle().getModel(),
         f.getVehicle().getYearOfManufacture(), f.getVehicle().getLicensePlate(),
         f.getVehicle().getColor(), f.getVehicle().getType(), f.getVehicle().getTransmission(),
         f.getVehicle().getFuelType(), f.getVehicle().getSeats(), f.getVehicle().getDoors(),

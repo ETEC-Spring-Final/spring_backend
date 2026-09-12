@@ -14,9 +14,8 @@ import lombok.Data;
 
 @Data
 public class VehicleRequestDTO {
-  @NotBlank
-  @Size(max = 50)
-  private String brand;
+  @NotNull
+  private Long brandId;
 
   @NotBlank
   @Size(max = 50)

@@ -14,5 +14,7 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
 
   List<Vehicle> findByType(CarTypeEnum type);
 
+  List<Vehicle> findByBrandId(Long brandId);
+
   Optional<Vehicle> findByLicensePlate(String licensePlate);
 }

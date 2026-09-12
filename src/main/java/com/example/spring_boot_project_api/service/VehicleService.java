@@ -12,6 +12,8 @@ public interface VehicleService {
 
   List<VehicleResponseDTO> getAllVehicles();
 
+  List<VehicleResponseDTO> getAllVehiclesByBrand(Long brandId);
+
   VehicleResponseDTO updateVehicle(Long id, VehicleRequestDTO dto);
 
   void deleteVehicle(Long id);
