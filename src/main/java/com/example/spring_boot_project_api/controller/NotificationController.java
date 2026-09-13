@@ -5,7 +5,9 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -33,8 +35,34 @@ public class NotificationController {
   }
 
   @GetMapping("/me/inbox")
-  public List<NotificationResponseDTO> getNotificationsForUser(@AuthenticationPrincipal CustomUserDetails userDetails) {
+  public List<NotificationResponseDTO> getNotificationsForUser(
+      @AuthenticationPrincipal CustomUserDetails userDetails) {
     return notificationService.getNotificationsForUser(userDetails.getId());
+  }
+
+  // Badge count of unread notifications for the current user
+  @GetMapping("/me/unread-count")
+  public long getUnreadCount(@AuthenticationPrincipal CustomUserDetails userDetails) {
+    return notificationService.getUnreadCount(userDetails.getId());
+  }
+
+  // Mark a single notification as read
+  @PatchMapping("/{id}/read")
+  public NotificationResponseDTO markAsRead(@PathVariable Long id,
+      @AuthenticationPrincipal CustomUserDetails userDetails) {
+    return notificationService.markAsRead(id, userDetails.getId());
+  }
+
+  // Mark every notification belonging to the current user as read
+  @PatchMapping("/me/read-all")
+  public void markAllAsRead(@AuthenticationPrincipal CustomUserDetails userDetails) {
+    notificationService.markAllAsRead(userDetails.getId());
+  }
+
+  @DeleteMapping("/{id}")
+  public void deleteNotification(@PathVariable Long id,
+      @AuthenticationPrincipal CustomUserDetails userDetails) {
+    notificationService.deleteNotification(id, userDetails.getId());
   }
 
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
