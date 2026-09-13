@@ -20,7 +20,7 @@ import com.example.spring_boot_project_api.service.MaintenanceRecordService;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/maintenace-records")
+@RequestMapping("/api/maintenance-records")  // បន្ថែម "n" ត្រឹមត្រូវ
 public class MaintenanceRecordController {
   @Autowired
   private MaintenanceRecordService maintenanceRecordService;

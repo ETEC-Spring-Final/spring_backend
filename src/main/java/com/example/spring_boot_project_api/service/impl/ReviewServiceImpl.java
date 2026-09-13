@@ -7,6 +7,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import com.example.spring_boot_project_api.dto.request.review.ReviewRequestDTO;
+import com.example.spring_boot_project_api.dto.request.review.ReviewVisibilityRequestDTO;
 import com.example.spring_boot_project_api.dto.response.review.ReviewResponseDTO;
 import com.example.spring_boot_project_api.enums.RentalStatusEnum;
 import com.example.spring_boot_project_api.enums.RoleEnum;
@@ -94,6 +95,19 @@ public class ReviewServiceImpl implements ReviewService {
   }
 
   @Override
+  public ReviewResponseDTO updateVisibility(Long id, ReviewVisibilityRequestDTO dto) {
+    // Endpoint is restricted to ADMIN/MANAGER/STAFF via @PreAuthorize on the
+    // controller, so no ownership check is needed here — this is a moderation
+    // action, not something a customer can do to their own review.
+    Review review = reviewRepository.findById(id).orElseThrow(() -> new RuntimeException("Review not found"));
+
+    review.setIsVisible(dto.getIsVisible());
+
+    Review saved = reviewRepository.save(review);
+    return toResponse(saved);
+  }
+
+  @Override
   public ReviewResponseDTO getReviewById(Long id) {
     Review review = reviewRepository.findById(id).orElseThrow(() -> new RuntimeException("Review not found"));
 
@@ -133,6 +147,7 @@ public class ReviewServiceImpl implements ReviewService {
         .userName(fullName)
         .rating(r.getRating())
         .comment(r.getComment())
+        .isVisible(r.getIsVisible())
         .createdAt(r.getCreatedAt())
         .updatedAt(r.getUpdatedAt())
         .build();

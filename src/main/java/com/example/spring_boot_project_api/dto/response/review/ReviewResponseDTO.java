@@ -17,6 +17,7 @@ public class ReviewResponseDTO {
   private String userName;
   private Integer rating;
   private String comment;
+  private Boolean isVisible;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 }
