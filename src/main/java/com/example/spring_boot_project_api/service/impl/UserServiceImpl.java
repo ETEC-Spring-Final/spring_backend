@@ -8,10 +8,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import com.example.spring_boot_project_api.dto.request.user.ChangePasswordRequestDTO;
 import com.example.spring_boot_project_api.dto.request.user.LoginRequestDTO;
 import com.example.spring_boot_project_api.dto.request.user.RegisterRequestDTO;
+import com.example.spring_boot_project_api.dto.request.user.UpdateProfileRequestDTO;
 import com.example.spring_boot_project_api.dto.response.user.AuthResponseDTO;
 import com.example.spring_boot_project_api.dto.response.user.UserResponseDTO;
+import com.example.spring_boot_project_api.enums.AuthProviderEnum;
 import com.example.spring_boot_project_api.enums.RoleEnum;
 import com.example.spring_boot_project_api.model.User;
 import com.example.spring_boot_project_api.repository.UserRepository;
@@ -116,6 +119,49 @@ public class UserServiceImpl implements UserService {
       throw new RuntimeException("User not found");
     }
     userRepository.deleteById(id);
+  }
+
+  // ===== New: "My Profile" self-service (admin/manager/staff) =====
+
+  @Override
+  public UserResponseDTO getMyProfile(String email) {
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new RuntimeException("User not found"));
+    return toResponseDTO(user);
+  }
+
+  @Override
+  @Transactional
+  public UserResponseDTO updateMyProfile(String email, UpdateProfileRequestDTO dto) {
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new RuntimeException("User not found"));
+
+    user.setFirstName(dto.getFirstName());
+    user.setLastName(dto.getLastName());
+    user.setPhone(dto.getPhone());
+    if (dto.getProfilePicture() != null && !dto.getProfilePicture().isBlank()) {
+      user.setProfilePicture(dto.getProfilePicture());
+    }
+
+    return toResponseDTO(userRepository.save(user));
+  }
+
+  @Override
+  @Transactional
+  public void changePassword(String email, ChangePasswordRequestDTO dto) {
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new RuntimeException("User not found"));
+
+    if (user.getAuthProvider() != AuthProviderEnum.LOCAL) {
+      throw new RuntimeException("OAuth2 accounts cannot change password here");
+    }
+
+    if (!passwordEncoder.matches(dto.getCurrentPassword(), user.getPassword())) {
+      throw new RuntimeException("Current password is incorrect");
+    }
+
+    user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
+    userRepository.save(user);
   }
 
   private UserResponseDTO toResponseDTO(User user) {

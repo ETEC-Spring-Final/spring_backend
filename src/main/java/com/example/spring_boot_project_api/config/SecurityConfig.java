@@ -39,13 +39,6 @@ public class SecurityConfig {
     http
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .csrf(AbstractHttpConfigurer::disable)
-        // IMPORTANT: JWT is stateless - we never want Spring Security to create
-        // an HTTP session or use session-based mechanisms (like saving the
-        // original request and redirecting to a login page) for API calls.
-        // Without this, CORS preflight (OPTIONS) requests to endpoints guarded
-        // by @PreAuthorize can get redirected to "/login" (registered by
-        // oauth2Login() as a default entry point), which the browser then
-        // blocks because redirects are not allowed on preflight responses.
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
             // Preflight requests must always be allowed through, unauthenticated,
@@ -59,20 +52,36 @@ public class SecurityConfig {
                 "/swagger-ui/**",
                 "/swagger-ui.html")
             .permitAll()
-            .anyRequest().permitAll())
+
+            // ===== Public browsing endpoints (Explore / vehicle detail pages
+            // used before login) — must stay in sync with router/index.js
+            // routes that have no requiresAuth meta. =====
+            .requestMatchers(HttpMethod.GET, "/api/vehicles/**").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/locations/**").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/reviews/vehicle/**").permitAll()
+
+            // "my-reviews" must stay authenticated even though it sits under
+            // /api/reviews — list it BEFORE the generic single-review rule
+            // below so it is matched first.
+            .requestMatchers(HttpMethod.GET, "/api/reviews/my-reviews").authenticated()
+            .requestMatchers(HttpMethod.GET, "/api/reviews/*").permitAll()
+
+            // Everything else (notifications, /api/auth/users, all
+            // POST/PUT/PATCH/DELETE, dashboard data, etc.) requires a valid,
+            // authenticated JWT. Role-specific restrictions are still
+            // enforced separately via @PreAuthorize on each method.
+            .anyRequest().authenticated())
         .oauth2Login(oauth2 -> oauth2
             .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
             .successHandler(oAuth2AuthenticationSuccessHandler))
         .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-        // IMPORTANT: must come AFTER oauth2Login(), otherwise OAuth2LoginConfigurer
-        // overwrites this entry point with its own "redirect to /login" behavior.
         .exceptionHandling(ex -> ex
             .authenticationEntryPoint((request, response, authException) ->
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
             .accessDeniedHandler((request, response, accessDeniedException) ->
                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden")));
 
-    return http.build();
+    return http.build();  
   }
 
   @Bean

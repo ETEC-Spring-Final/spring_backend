@@ -42,8 +42,19 @@ public class AuthenticationEventListener {
   }
 
   private String extractUsername(Object principal) {
+    // LOCAL (email/password) login: principal is a Spring Security UserDetails
+    // (e.g. CustomUserDetails) — getUsername() returns the email we set as
+    // the "username" in CustomUserDetails' constructor.
     if (principal instanceof UserDetails userDetails) {
       return userDetails.getUsername();
+    }
+    // OAuth2 (Google/Facebook) login: principal is our CustomOAuth2User,
+    // which does NOT implement UserDetails and has no toString() override,
+    // so falling through to principal.toString() previously produced
+    // "com.example...CustomOAuth2User@<hashcode>" instead of the email.
+    // Read the real User entity we attached in CustomOAuth2UserService.
+    if (principal instanceof CustomOAuth2User oAuth2User) {
+      return oAuth2User.getUser().getEmail();
     }
     return principal.toString();
   }
