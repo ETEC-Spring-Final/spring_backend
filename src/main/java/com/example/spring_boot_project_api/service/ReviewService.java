@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import com.example.spring_boot_project_api.dto.request.review.ReviewRequestDTO;
+import com.example.spring_boot_project_api.dto.request.review.ReviewVisibilityRequestDTO;
 import com.example.spring_boot_project_api.dto.response.review.ReviewResponseDTO;
 
 public interface ReviewService {
@@ -14,6 +15,9 @@ public interface ReviewService {
   ReviewResponseDTO updateReview(Long id, ReviewRequestDTO dto);
 
   void deleteReview(Long id);
+
+  // Moderation: hide/show a review without deleting it
+  ReviewResponseDTO updateVisibility(Long id, ReviewVisibilityRequestDTO dto);
 
   // Single Fetch
   ReviewResponseDTO getReviewById(Long id);
