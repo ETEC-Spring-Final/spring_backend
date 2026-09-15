@@ -8,7 +8,10 @@ import com.example.spring_boot_project_api.dto.request.vehicle.VehicleRequestDTO
 import com.example.spring_boot_project_api.dto.response.vehicle.VehicleResponseDTO;
 import com.example.spring_boot_project_api.model.Brand;
 import com.example.spring_boot_project_api.model.Vehicle;
+import com.example.spring_boot_project_api.model.VehicleImage;
+import com.example.spring_boot_project_api.repository.AttachmentRepository;
 import com.example.spring_boot_project_api.repository.BrandRepository;
+import com.example.spring_boot_project_api.repository.VehicleImageRepository;
 import com.example.spring_boot_project_api.repository.VehicleRepository;
 import com.example.spring_boot_project_api.service.VehicleService;
 
@@ -19,6 +22,9 @@ import lombok.RequiredArgsConstructor;
 public class VehicleServiceImpl implements VehicleService {
   private final VehicleRepository vehicleRepository;
   private final BrandRepository brandRepository;
+  // ADDED: needed to cascade-clean images/attachments before deleting a vehicle
+  private final VehicleImageRepository vehicleImageRepository;
+  private final AttachmentRepository attachmentRepository;
 
   @Override
   public VehicleResponseDTO createVehicle(VehicleRequestDTO dto) {
@@ -101,6 +107,17 @@ public class VehicleServiceImpl implements VehicleService {
     if (!vehicleRepository.existsById(id)) {
       throw new RuntimeException("Vehicle not found");
     }
+
+    // FIXED: delete dependent VehicleImage rows (and their Attachments) first,
+    // otherwise this throws a foreign key constraint violation when the
+    // vehicle has any images attached.
+    List<VehicleImage> images = vehicleImageRepository.findByVehicleId(id);
+    for (VehicleImage image : images) {
+      Long attachmentId = image.getAttachment().getId();
+      vehicleImageRepository.delete(image);
+      attachmentRepository.deleteById(attachmentId);
+    }
+
     vehicleRepository.deleteById(id);
   }
 

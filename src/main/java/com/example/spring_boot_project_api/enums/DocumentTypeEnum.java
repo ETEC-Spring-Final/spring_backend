@@ -6,5 +6,6 @@ public enum DocumentTypeEnum {
   DRIVERS_LICENSE,
   INSURANCE,
   CONDITION_PHOTO,
+  VEHICLE_IMAGE,
   OTHER
 }

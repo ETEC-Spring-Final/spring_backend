@@ -3,7 +3,6 @@ package com.example.spring_boot_project_api.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 import com.example.spring_boot_project_api.dto.request.rental_document.RentalDocumentRequestDTO;
 import com.example.spring_boot_project_api.dto.response.rental_document.RentalDocumentResponseDTO;
@@ -35,12 +33,19 @@ public class RentalDocumentController {
     return rentalDocumentService.createRentalDocument(dto);
   }
 
-  @PostMapping(value = "/{rentalId}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public RentalDocumentResponseDTO uploadDocument(@PathVariable Long rentalId,
-      @RequestParam("file") MultipartFile file,
-      @RequestParam DocumentTypeEnum documentType) {
-    return rentalDocumentService.uploadDocument(rentalId, file, documentType);
-  }
+  // DEPRECATED (2026-09): saved files to local disk via AttachmentServiceImpl.uploadAttachment(),
+  // not served as a static resource → images 404 in browser. Confirmed unused by any frontend
+  // (grep across vue_frontend found no callers) — safe to delete entirely in a future cleanup.
+  // Replaced by 2-step Cloudinary flow:
+  //   1) POST /api/attachments        { fileUrl, documentType, isPrimary:false, displayOrder:0 }
+  //   2) POST /api/rental-documents   { rentalId, attachmentId }
+  //
+  // @PostMapping(value = "/{rentalId}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  // public RentalDocumentResponseDTO uploadDocument(@PathVariable Long rentalId,
+  //     @RequestParam("file") MultipartFile file,
+  //     @RequestParam DocumentTypeEnum documentType) {
+  //   return rentalDocumentService.uploadDocument(rentalId, file, documentType);
+  // }
 
   @GetMapping("/my-rental-document")
   public List<RentalDocumentResponseDTO> getMyRentalDocuments() {

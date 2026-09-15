@@ -50,6 +50,10 @@ public class RentalDocumentServiceImpl implements RentalDocumentService {
     return toResponse(saved);
   }
 
+  // DEPRECATED: saves to local disk (grey-box bug). Unused by any frontend as of 2026-09
+  // (confirmed via grep). Kept only so this class still implements the interface method —
+  // the controller route that called this is commented out. Do not call from new code.
+  @Deprecated
   @Override
   public RentalDocumentResponseDTO uploadDocument(Long rentalId, MultipartFile file, DocumentTypeEnum documentType) {
     Rental rental = rentalRepository.findById(rentalId)
@@ -136,7 +140,6 @@ public class RentalDocumentServiceImpl implements RentalDocumentService {
     return new RentalDocumentResponseDTO(rd.getId(), rd.getRental().getId(), attachmentDto);
   }
 
-  // Ownership function
   private User getCurrentUser() {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
     String currentUsername = authentication.getName();

@@ -43,7 +43,10 @@ public class VehicleImageServiceImpl implements VehicleImageService {
     return toResponse(saved);
   }
 
-  // ============UPLOAD IMAGE============
+  // DEPRECATED: saves to local disk (grey-box bug). Unused by any frontend as of 2026-09
+  // (confirmed via grep). Kept only so this class still implements the interface method —
+  // the controller route that called this is commented out. Do not call from new code.
+  @Deprecated
   @Override
   public VehicleImageResponseDTO uploadImage(Long vehicleId, MultipartFile file) {
     Vehicle vehicle = vehicleRepository.findById(vehicleId)
@@ -56,8 +59,14 @@ public class VehicleImageServiceImpl implements VehicleImageService {
     VehicleImage vehicleImage = new VehicleImage();
     vehicleImage.setVehicle(vehicle);
     vehicleImage.setAttachment(attachment);
-
     VehicleImage saved = vehicleImageRepository.save(vehicleImage);
+
+    List<VehicleImage> existing = vehicleImageRepository.findByVehicleId(vehicleId);
+    boolean isFirstImage = existing.size() == 1;
+    attachment.setIsPrimary(isFirstImage);
+    attachment.setDisplayOrder(existing.size() - 1);
+    attachmentRepository.save(attachment);
+
     return toResponse(saved);
   }
 
@@ -81,6 +90,17 @@ public class VehicleImageServiceImpl implements VehicleImageService {
         .orElseThrow(() -> new RuntimeException("Image not found"));
 
     Attachment attachment = vehicleImage.getAttachment();
+
+    if (Boolean.TRUE.equals(dto.getIsPrimary())) {
+      List<VehicleImage> siblings = vehicleImageRepository.findByVehicleId(vehicleImage.getVehicle().getId());
+      for (VehicleImage sibling : siblings) {
+        if (!sibling.getId().equals(id) && Boolean.TRUE.equals(sibling.getAttachment().getIsPrimary())) {
+          sibling.getAttachment().setIsPrimary(false);
+          attachmentRepository.save(sibling.getAttachment());
+        }
+      }
+    }
+
     attachment.setIsPrimary(dto.getIsPrimary() != null ? dto.getIsPrimary() : attachment.getIsPrimary());
     attachment.setDisplayOrder(dto.getDisplayOrder() != null ? dto.getDisplayOrder() : attachment.getDisplayOrder());
     attachmentRepository.save(attachment);
@@ -90,10 +110,22 @@ public class VehicleImageServiceImpl implements VehicleImageService {
 
   @Override
   public void deleteVehicleImage(Long id) {
-    if (!vehicleImageRepository.existsById(id)) {
-      throw new RuntimeException("Image not found");
-    }
+    VehicleImage vehicleImage = vehicleImageRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Image not found"));
+
+    Long attachmentId = vehicleImage.getAttachment().getId();
+    boolean wasPrimary = Boolean.TRUE.equals(vehicleImage.getAttachment().getIsPrimary());
+    Long vehicleId = vehicleImage.getVehicle().getId();
+
     vehicleImageRepository.deleteById(id);
+    attachmentRepository.deleteById(attachmentId);
+
+    if (wasPrimary) {
+      vehicleImageRepository.findByVehicleId(vehicleId).stream().findFirst().ifPresent(next -> {
+        next.getAttachment().setIsPrimary(true);
+        attachmentRepository.save(next.getAttachment());
+      });
+    }
   }
 
   private VehicleImageResponseDTO toResponse(VehicleImage vi) {
