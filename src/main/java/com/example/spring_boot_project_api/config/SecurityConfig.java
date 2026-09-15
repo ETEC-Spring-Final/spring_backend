@@ -60,6 +60,14 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.GET, "/api/locations/**").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/reviews/vehicle/**").permitAll()
 
+            // Site branding/contact info (logo, site name, contact email/phone) —
+            // must be readable WITHOUT a JWT: the login page, the public
+            // marketing site header/footer, and the admin dashboard sidebar/
+            // header all render this before or without authentication.
+            // Updating it (PUT) still requires ADMIN/MANAGER via @PreAuthorize
+            // on SiteSettingsController.
+            .requestMatchers(HttpMethod.GET, "/api/settings").permitAll()
+
             // "my-reviews" must stay authenticated even though it sits under
             // /api/reviews — list it BEFORE the generic single-review rule
             // below so it is matched first.
