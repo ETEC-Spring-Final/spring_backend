@@ -1,6 +1,7 @@
 package com.example.spring_boot_project_api.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -10,6 +11,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
   boolean existsByInvoiceNumber(String invoiceNumber);
 
   boolean existsByRentalId(Long rentalId);
+
+  Optional<Invoice> findByRentalId(Long rentalId);
 
   List<Invoice> findByRentalUserEmail(String email);
 }

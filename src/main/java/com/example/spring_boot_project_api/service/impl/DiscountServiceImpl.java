@@ -114,6 +114,38 @@ public class DiscountServiceImpl implements DiscountService {
     discountRepository.deleteById(id);
   }
 
+  @Override
+  @Transactional
+  public BigDecimal applyDiscount(String code, BigDecimal subtotal) {
+    if (code == null || code.isBlank()) {
+      return BigDecimal.ZERO;
+    }
+
+    Discount discount = discountRepository.findByCodeIgnoreCase(code.trim())
+        .orElseThrow(() -> new RuntimeException("Discount code not found"));
+
+    if (discount.getIsActive() == null || !discount.getIsActive()) {
+      throw new RuntimeException("Discount code is inactive");
+    }
+    if (!isRedeemable(discount)) {
+      throw new RuntimeException("Discount code is expired or has reached its usage limit");
+    }
+
+    BigDecimal amount;
+    if (discount.getType() == DiscountTypeEnum.PERCENTAGE) {
+      amount = subtotal
+          .multiply(discount.getValue())
+          .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+    } else {
+      amount = discount.getValue().min(subtotal);
+    }
+
+    discount.setUsedCount((discount.getUsedCount() != null ? discount.getUsedCount() : 0) + 1);
+    discountRepository.save(discount);
+
+    return amount;
+  }
+
   // ===== FIX: business rules that were previously missing entirely =====
   private void validateBusinessRules(DiscountRequestDTO dto) {
     // FIX: guard against a null value before comparing. If DiscountRequestDTO

@@ -23,6 +23,9 @@ public class ReservationResponseDTO {
   private BigDecimal depositAmount;
   private BigDecimal discountAmount;
   private BigDecimal additionalCharges;
+  // Auto-created by the backend for customer bookings (nullable otherwise).
+  private Long rentalId;
+  private Long invoiceId;
   private String notes;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;

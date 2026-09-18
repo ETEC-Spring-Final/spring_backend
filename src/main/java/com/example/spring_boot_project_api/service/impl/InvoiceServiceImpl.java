@@ -8,10 +8,14 @@ import java.util.List;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.example.spring_boot_project_api.dto.request.invoice.InvoicePaymentConfirmDTO;
 import com.example.spring_boot_project_api.dto.request.invoice.InvoiceRequestDTO;
+import com.example.spring_boot_project_api.dto.request.notification.NotificationRequestDTO;
 import com.example.spring_boot_project_api.dto.response.invoice.InvoiceResponseDTO;
 import com.example.spring_boot_project_api.enums.InvoiceStatusEnum;
+import com.example.spring_boot_project_api.enums.NotificationTypeEnum;
 import com.example.spring_boot_project_api.enums.RoleEnum;
 import com.example.spring_boot_project_api.model.Invoice;
 import com.example.spring_boot_project_api.model.Rental;
@@ -19,7 +23,9 @@ import com.example.spring_boot_project_api.model.User;
 import com.example.spring_boot_project_api.repository.InvoiceRepository;
 import com.example.spring_boot_project_api.repository.RentalRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
+import com.example.spring_boot_project_api.service.BakongService;
 import com.example.spring_boot_project_api.service.InvoiceService;
+import com.example.spring_boot_project_api.service.NotificationService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +35,8 @@ public class InvoiceServiceImpl implements InvoiceService {
   private final InvoiceRepository invoiceRepository;
   private final UserRepository userRepository;
   private final RentalRepository rentalRepository;
+  private final BakongService bakongService;
+  private final NotificationService notificationService;
 
   @Override
   public InvoiceResponseDTO createInvoice(InvoiceRequestDTO dto) {
@@ -132,6 +140,46 @@ public class InvoiceServiceImpl implements InvoiceService {
     return new InvoiceResponseDTO(i.getId(), i.getRental().getId(), i.getInvoiceNumber(), i.getIssueDate(),
         i.getDueDate(), i.getSubtotal(), i.getDiscountAmount(), i.getTaxAmount(), i.getLateFee(), i.getTotalAmount(),
         i.getStatus(), i.getCreatedAt());
+  }
+
+  @Override
+  @Transactional
+  public InvoiceResponseDTO confirmPayment(Long id, InvoicePaymentConfirmDTO dto) {
+    Invoice invoice = invoiceRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Invoice not found"));
+
+    User currentUser = getCurrentUser();
+    boolean isOwner = invoice.getRental().getUser().getId().equals(currentUser.getId());
+
+    if (!isOwner) {
+      throw new RuntimeException("You are not authorized to pay this invoice");
+    }
+
+    if (invoice.getStatus() == InvoiceStatusEnum.PAID) {
+      return toResponse(invoice);
+    }
+    if (invoice.getStatus() == InvoiceStatusEnum.CANCELLED) {
+      throw new RuntimeException("This invoice has been cancelled");
+    }
+
+    com.example.spring_boot_project_api.dto.response.bakong.BakongResponse bakongResponse =
+        bakongService.checkTransactionByMD5(
+            new com.example.spring_boot_project_api.dto.request.bakong.CheckTransactionRequest(dto.md5()));
+
+    if (!bakongResponse.isSuccess()) {
+      throw new RuntimeException("Payment has not been confirmed");
+    }
+
+    invoice.setStatus(InvoiceStatusEnum.PAID);
+    Invoice saved = invoiceRepository.save(invoice);
+
+    NotificationRequestDTO notification = new NotificationRequestDTO();
+    notification.setType(NotificationTypeEnum.PAYMENT_SUCCESS);
+    notification.setTitle("Payment successful");
+    notification.setMessage("Your payment for invoice " + saved.getInvoiceNumber() + " was received. Thank you!");
+    notificationService.createNotification(currentUser.getId(), notification);
+
+    return toResponse(saved);
   }
 
   // Generate Invoice Number

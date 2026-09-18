@@ -6,7 +6,7 @@ This file is the **single source of truth** and covers the whole project: the Sp
 API (`spring_backend/`) and the Vue 3 frontend (`vue_frontend/`). It is kept in sync with the
 current code. The frontend also has a short pointer file at `vue_frontend/AGENTS.md`.
 
-> **Last verified:** 2026-09-17 against every `@RestController`. If you add/remove an endpoint,
+> **Last verified:** 2026-09-18 against every `@RestController`. If you add/remove an endpoint,
 > update the API tables in §2.6 below.
 
 ---
@@ -252,18 +252,27 @@ served → 404 grey-box bug). Use the attachment JSON flow.
 
 | Method | Endpoint | Auth | Notes |
 |--------|----------|------|-------|
-| POST | `/api/reservations` | JWT | Create (no overlap pre-check yet — TODO in code) |
+| POST | `/api/reservations` | JWT | Create. Overlap-guarded. **For CUSTOMER role also auto-creates Rental (PENDING) + Invoice (UNPAID) in one call**; fires BOOKING_CONFIRMED notification. Request: `pickUpLocationId, returnLocationId, pickUpDateTime, returnDateTime, serviceIds[], discountCode, notes` |
 | GET | `/api/reservations/{id}` | JWT | Owner-scoped in service |
 | GET | `/api/reservations/my-reservations` | JWT | |
 | GET | `/api/reservations` | ADMIN, MANAGER, STAFF | |
-| PATCH | `/api/reservations/{id}/status?status=X` | ADMIN, MANAGER, STAFF | `ReservationStatusEnum` |
-| PATCH | `/api/reservations/{id}/cancel` | JWT | Owner |
-| PUT | `/api/reservations/{id}` | ADMIN, MANAGER, STAFF | |
+| PATCH | `/api/reservations/{id}/status?status=X` | ADMIN, MANAGER, STAFF | `ReservationStatusEnum`; →CONFIRMED fires BOOKING_CONFIRMED |
+| PATCH | `/api/reservations/{id}/cancel` | JWT | Owner. **PENDING-only**; cancels linked UNPAID invoice; fires BOOKING_CANCELLED |
+| PUT | `/api/reservations/{id}` | ADMIN, MANAGER, STAFF | Recomputes server-side totals |
 | DELETE | `/api/reservations/{id}` | ADMIN, MANAGER, STAFF | |
+
+`ReservationRequestDTO`: `vehicleId, pickUpLocationId, returnLocationId, pickUpDateTime (LocalDateTime),
+returnDateTime (LocalDateTime), depositAmount, discountAmount, additionalCharges, discountCode,
+serviceIds (List<Long>), notes`.
 
 `ReservationResponseDTO`: `id, userId, vehicleId, pickUpLocationId, returnLocationId,
 pickUpDateTime, returnDateTime, status, totalPrice, depositAmount, discountAmount,
-additionalCharges, notes, createdAt, updatedAt`.
+additionalCharges, **rentalId, invoiceId** (nullable — populated for CUSTOMER bookings),
+notes, createdAt, updatedAt`.
+
+> Server-side totals: base price = `pricePerDay × days`; only active services added;
+> subtotal = base + services; discount via `DiscountService.applyDiscount(code, subtotal)`
+> (PERCENTAGE → HALF_UP 2dp; FIXED_AMOUNT → min(value, subtotal)); total = subtotal − discount.
 
 #### Reservation services (add-ons per reservation) — `/api/reservation-services`
 
@@ -332,33 +341,37 @@ additionalCharges, lateFee, totalPrice, notes, createdAt, updatedAt`.
 
 #### Invoices — `/api/invoices`
 
-| Method | Endpoint | Auth |
-|--------|----------|------|
-| POST | `/api/invoices` | ADMIN, MANAGER, STAFF |
-| GET | `/api/invoices/{id}` | JWT |
-| GET | `/api/invoices/my-invoices` | JWT |
-| GET | `/api/invoices` | ADMIN, MANAGER, STAFF |
-| PUT | `/api/invoices/{id}` | ADMIN, MANAGER, STAFF |
-| DELETE | `/api/invoices/{id}` | ADMIN, MANAGER, STAFF |
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| POST | `/api/invoices` | ADMIN, MANAGER, STAFF | Manual create (admin flow) |
+| GET | `/api/invoices/{id}` | JWT | Owner-scoped |
+| GET | `/api/invoices/my-invoices` | JWT | |
+| GET | `/api/invoices` | ADMIN, MANAGER, STAFF | |
+| POST | `/api/invoices/{id}/confirm-payment` | JWT | Owner-only, idempotent when PAID, rejects CANCELLED. Body `{md5}` (`InvoicePaymentConfirmDTO`). Verifies via `bakongService.checkTransactionByMD5`, marks PAID, fires PAYMENT_SUCCESS |
+| PUT | `/api/invoices/{id}` | ADMIN, MANAGER, STAFF | |
+| DELETE | `/api/invoices/{id}` | ADMIN, MANAGER, STAFF | |
 
 `InvoiceResponseDTO`: `id, rentalId, invoiceNumber, issueDate, dueDate, subtotal, discountAmount,
 taxAmount, lateFee, totalAmount, status (InvoiceStatusEnum), createdAt`.
+
+> **Auto-creation:** `POST /api/reservations` (CUSTOMER role) creates the Rental + Invoice and
+> returns their ids on `ReservationResponseDTO.rentalId/.invoiceId` — no separate invoice step
+> needed for the public booking flow.
 
 #### Discounts — `/api/discounts`
 
 | Method | Endpoint | Auth | Notes |
 |--------|----------|------|-------|
 | POST | `/api/discounts` | ADMIN, MANAGER | |
-| GET | `/api/discounts` | ADMIN, MANAGER | Was Public before — **now gated** |
+| GET | `/api/discounts` | ADMIN, MANAGER | Full admin list |
+| GET | `/api/discounts/active` | Any signed-in user | Currently-redeemable codes (expiry/usage filtered server-side); declared before `/{id}` |
 | GET | `/api/discounts/{id}` | ADMIN, MANAGER | |
 | PUT | `/api/discounts/{id}` | ADMIN, MANAGER | |
 | DELETE | `/api/discounts/{id}` | ADMIN | |
 
-> ⚠ **Frontend mismatch:** `reservations.js` `getDiscounts()` calls `GET /api/discounts` from the
-> customer reservation form → 403 for customers. Also `DiscountManagement.vue` calls
-> `GET /api/discounts/active`, which does **not exist** (only `GET /api/discounts`). Either add a
-> public read path `/api/discounts?active=true` for customers, or remove the promo-code lookup
-> from the customer form (the backend already applies discounts via the reservation DTO).
+> `DiscountResponseDTO`: `id, code, description, type (PERCENTAGE|FIXED_AMOUNT), value, validFrom,
+> validTo, maxUses, usedCount, isActive`. `usedCount` increments when a code is applied
+> (`DiscountServiceImpl.applyDiscount`).
 
 #### Discount usage — `/api/discount-usages`
 
@@ -451,14 +464,16 @@ isRead, createdAt`.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/v1/bakong/generate-qr` | Returns KHQR response/data |
-| POST | `/api/v1/bakong/qr-image` | Returns PNG bytes |
-| POST | `/api/v1/bakong/check-transaction` | Check payment by MD5 (`CheckTransactionRequest`) |
+| POST | `/api/v1/bakong/generate-qr` | Body `BakongRequest` → `KHQRResponse<KHQRData>` = `{KHQRStatus:{code,errorCode,message}, data:{qr, md5, ...}}` |
+| POST | `/api/v1/bakong/qr-image` | Body `KHQRData` (>=`{qr}`) → PNG bytes (`image/png`, consume as blob) |
+| POST | `/api/v1/bakong/check-transaction` | Body `CheckTransactionRequest {md5}` → `BakongResponse {responseCode, responseMessage, errorCode, data}`; success = `responseCode === 0` |
 
-> ⚠ **Frontend mismatch:** `invoices.js` / `invoice.service.js` still call
-> `/api/v1/bakong/check-payment` and send `{ invoiceId }` — the real endpoints are
-> `/generate-qr`, `/qr-image`, `/check-transaction`. Confirm `BakongRequest`,
-> `CheckTransactionRequest`, `BakongResponse` shapes before wiring payment UI.
+> `BakongRequest` fields (all optional with defaults): `currency (KHR|USD), amount, merchantName,
+> merchantCity, merchantId, acquiringBank, upiAccountInformation, expirationTimestamp,
+> billNumber, storeLabel, terminalLabel, mobileNumber, purposeOfTransaction,
+> merchantAlternateLanguagePreference, merchantNameAlternateLanguage, merchantCityAlternateLanguage`.
+> Payment flow wired in `vue_frontend/src/services/invoices.js`: `generate-qr` → `qr-image` →
+> poll `check-transaction` → `POST /api/invoices/{id}/confirm-payment {md5}`.
 
 #### Test / role probes — `/api/test`
 
@@ -477,13 +492,20 @@ isRead, createdAt`.
    logged-out. Add it to the `SecurityConfig` public allow-list.
 3. **`/api/services` write endpoints are unguarded** (any authenticated user). Add
    `@PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF')")`.
-4. **Discounts & services & maintenance GETs aren't customer-readable** — customer flows
-   (reservation form, explore) 403 on `GET /api/discounts`, `GET /api/services`.
-5. **Reservation overlap check** is TODO — two customers can double-book one vehicle.
+4. ✅ **Discounts & services GETs for customers — RESOLVED.** `GET /api/services` is now in the
+   `SecurityConfig` public allow-list (any visitor) and `GET /api/discounts/active` is open to any
+   signed-in user and filters expired/exhausted codes server-side. Frontend uses both
+   (`reservations.js`).
+5. ✅ **Reservation overlap check — RESOLVED.** `ReservationServiceImpl` now rejects overlapping
+   PENDING/CONFIRMED reservations for the same vehicle on create/update. Same guard added for
+   rentals (item 11).
 6. **AuditLog** is written nowhere yet (endpoints + service exist).
 7. **No real analytics/reporting endpoint** — `Dashboard.vue` computes stats client-side.
 8. **No server-side vehicle search/filter** — everything client-side.
-9. **Bakong** request/response shapes not pinned; frontend calls stale endpoints.
+9. ✅ **Bakong contracts pinned — RESOLVED.** Shapes live in §2.6 Bakong; public flow in
+   `vue_frontend/src/services/invoices.js` is fixed (`generate-qr`, `qr-image`, `check-transaction`,
+   `confirm-payment`). ⚠ Only the admin-only `invoice.service.js` still has stale calls — not in the
+   public path.
 10. **Test coverage** — `src/test/java` essentially empty; add `@WebMvcTest`, `@DataJpaTest`,
     service unit tests (price math, discount, reservation status transitions, Bakong).
 11. **IllegalState/no overlap guard on rentals** — creating a rental for an already-rented vehicle.
@@ -770,13 +792,16 @@ website** with more features, while the dashboard/admin area stays as-is. Everyt
 
 ### 4.5 Phase D — Booking & account flows (customer)
 
-- [ ] **Booking wizard** (`/reservations` → multi-step): 1) Dates & locations, 2) Add-ons &
-      price breakdown (`calculatePriceBreakdown`), 3) Confirm → creates reservation + triggers
-      invoice. Prices should come from a backend `POST /api/reservations/price` (authoritative)
-      rather than client-side math.
-- [ ] **Payment UI**: Bakong QR generation + transaction polling (`/generate-qr`,
-      `/check-transaction`) on invoice/reservation success. Show paid status.
-- [ ] My Reservations / My Rentals / My Invoices: status timelines, countdown badges, doc upload
+- [x] **Booking page** (`/booking/:vehicleId`, legacy `/reservations?vehicleId=` still works):
+      dates & locations, add-ons, discount code, client-side preview via `calculatePriceBreakdown`.
+      Submit → `POST /api/reservations` (auto-creates Rental+Invoice for CUSTOMER) → redirect to
+      `/payment/{invoiceId}` with the invoice id from the response.
+- [x] **Payment UI**: `Payment.vue` at `/payment/:invoiceId` — generate QR (`/generate-qr`),
+      render PNG (`/qr-image`), poll `/check-transaction {md5}` (~4s), then
+      `POST /api/invoices/{id}/confirm-payment {md5}`. Idempotent; shows PAID state.
+- [ ] **Price endpoint**: backend `POST /api/reservations/price` (authoritative) to replace the
+      client-side preview math in the booking form.
+- [ ] My Rentals / My Invoices: status timelines, countdown badges, doc upload
       (via the working attachment flow), cancel/confirm dialogs.
 - [ ] **Notifications center**: mark read / read all, types, unread badge (endpoints exist).
 - [ ] **Profile**: avatar upload (attachment flow), change password (exists), language + theme

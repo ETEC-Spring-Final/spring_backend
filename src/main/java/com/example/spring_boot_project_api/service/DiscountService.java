@@ -22,4 +22,12 @@ public interface DiscountService {
   DiscountResponseDTO updateDiscount(Long id, DiscountRequestDTO dto);
 
   void deleteDiscount(Long id);
+
+  /**
+   * Applies a promo code to the given subtotal. Returns the discount amount
+   * (0 when the code is null/blank). Throws when the code is unknown,
+   * inactive, outside its validity window, or exhausted. Consumes one use
+   * of the code.
+   */
+  java.math.BigDecimal applyDiscount(String code, java.math.BigDecimal subtotal);
 }

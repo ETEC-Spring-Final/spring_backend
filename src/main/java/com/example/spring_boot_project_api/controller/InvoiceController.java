@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.spring_boot_project_api.dto.request.invoice.InvoicePaymentConfirmDTO;
 import com.example.spring_boot_project_api.dto.request.invoice.InvoiceRequestDTO;
 import com.example.spring_boot_project_api.dto.response.invoice.InvoiceResponseDTO;
 import com.example.spring_boot_project_api.service.InvoiceService;
@@ -39,6 +40,12 @@ public class InvoiceController {
   @GetMapping("/my-invoices")
   public List<InvoiceResponseDTO> getMyInvoices() {
     return invoiceService.getMyInvoices();
+  }
+
+  @PostMapping("/{id}/confirm-payment")
+  public InvoiceResponseDTO confirmPayment(@PathVariable Long id,
+      @Valid @RequestBody InvoicePaymentConfirmDTO dto) {
+    return invoiceService.confirmPayment(id, dto);
   }
 
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")

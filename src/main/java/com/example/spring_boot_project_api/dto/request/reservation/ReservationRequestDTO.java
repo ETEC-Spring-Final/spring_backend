@@ -2,6 +2,7 @@ package com.example.spring_boot_project_api.dto.request.reservation;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -29,6 +30,10 @@ public class ReservationRequestDTO {
   private BigDecimal discountAmount;
 
   private BigDecimal additionalCharges;
+
+  private String discountCode;
+
+  private List<Long> serviceIds;
 
   @Size(max = 255)
   private String notes;
