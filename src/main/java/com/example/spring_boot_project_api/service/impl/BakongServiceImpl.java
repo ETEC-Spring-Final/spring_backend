@@ -81,6 +81,20 @@ public class BakongServiceImpl implements BakongService {
           response.getKHQRStatus().getMessage());
     }
 
+    if (response.getKHQRStatus() != null && response.getKHQRStatus().getCode() != 0) {
+      String sdkMessage = response.getKHQRStatus().getMessage();
+      if (sdkMessage == null || sdkMessage.isBlank()) {
+        sdkMessage = "Bakong KHQR validation failed (code "
+            + response.getKHQRStatus().getCode() + ")";
+      }
+      throw new RuntimeException("Bakong QR generation failed: " + sdkMessage);
+    }
+
+    if (response.getData() == null || response.getData().getQr() == null
+        || response.getData().getQr().isBlank()) {
+      throw new RuntimeException("Bakong QR generation failed: no QR data returned");
+    }
+
     if (response.getData() != null) {
       log.info("Generated Individual QR String: {}", response.getData().getQr());
       log.info("Generated MD5: {}", response.getData().getMd5());
@@ -91,11 +105,11 @@ public class BakongServiceImpl implements BakongService {
 
   @Override
   public byte[] getQRImage(KHQRData qr) {
-    try {
-      if (qr == null || qr.getQr() == null || qr.getQr().isBlank()) {
-        return "Invalid QR data".getBytes(StandardCharsets.UTF_8);
-      }
+    if (qr == null || qr.getQr() == null || qr.getQr().isBlank()) {
+      throw new RuntimeException("Invalid QR data");
+    }
 
+    try {
       String qrCodeText = qr.getQr();
 
       QRCodeWriter qrCodeWriter = new QRCodeWriter();
@@ -113,9 +127,9 @@ public class BakongServiceImpl implements BakongService {
       return pngOutputStream.toByteArray();
 
     } catch (WriterException e) {
-      return "Error encoding QR data".getBytes(StandardCharsets.UTF_8);
+      throw new RuntimeException("Error encoding QR data", e);
     } catch (Exception e) {
-      return ("Unexpected error: " + e.getMessage()).getBytes(StandardCharsets.UTF_8);
+      throw new RuntimeException("Unexpected error generating QR image: " + e.getMessage(), e);
     }
   }
 
