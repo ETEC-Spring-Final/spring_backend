@@ -12,6 +12,13 @@ public interface DiscountService {
 
   List<DiscountResponseDTO> getAllDiscounts();
 
+  /**
+   * Promo codes a customer can actually redeem right now: isActive = true,
+   * inside the valid-from / valid-to window, and not exhausted (usedCount
+   * below maxUses). Backs GET /api/discounts/active.
+   */
+  List<DiscountResponseDTO> getActiveDiscounts();
+
   DiscountResponseDTO updateDiscount(Long id, DiscountRequestDTO dto);
 
   void deleteDiscount(Long id);

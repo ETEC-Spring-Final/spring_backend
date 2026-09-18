@@ -2,7 +2,6 @@ package com.example.spring_boot_project_api.controller;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,16 +17,27 @@ import com.example.spring_boot_project_api.dto.response.discount_usage.DiscountU
 import com.example.spring_boot_project_api.service.DiscountUsageService;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/discount-usages")
+@RequiredArgsConstructor
 public class DiscountUsageController {
-  @Autowired
-  private DiscountUsageService discountUsageService;
+
+  private final DiscountUsageService discountUsageService;
 
   @PostMapping
   public DiscountUsageResponseDTO createDiscountUsage(@Valid @RequestBody DiscountUsageRequestDTO dto) {
     return discountUsageService.createDiscountUsage(dto);
+  }
+
+  /**
+   * Declared before /{id} so the literal path wins the match — otherwise
+   * "my-discount-usages" is handed to the Long converter and blows up.
+   */
+  @GetMapping("/my-discount-usages")
+  public List<DiscountUsageResponseDTO> getMyDiscountUsages() {
+    return discountUsageService.getMyDiscountUsages();
   }
 
   @GetMapping("/{id}")
@@ -35,14 +45,16 @@ public class DiscountUsageController {
     return discountUsageService.getDiscountUsageById(id);
   }
 
-  @GetMapping("/my-discount-usages")
-  public List<DiscountUsageResponseDTO> getMyDiscountUsages() {
-    return discountUsageService.getMyDiscountUsages();
-  }
-
+  /**
+   * FIX (Phase A): this method declared `@PathVariable Long id` while its
+   * @GetMapping has no {id} placeholder. Spring cannot resolve the variable, so
+   * every call to GET /api/discount-usages failed at runtime instead of
+   * returning the list. The parameter was unused anyway — the service takes no
+   * argument — so it is simply removed.
+   */
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
   @GetMapping
-  public List<DiscountUsageResponseDTO> getAllDiscountUsages(@PathVariable Long id) {
+  public List<DiscountUsageResponseDTO> getAllDiscountUsages() {
     return discountUsageService.getAllDiscountUsages();
   }
 

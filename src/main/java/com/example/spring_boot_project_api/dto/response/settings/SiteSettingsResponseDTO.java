@@ -17,5 +17,10 @@ public class SiteSettingsResponseDTO {
   private String address;
   private String facebookUrl;
   private String telegramUrl;
+  private String instagramUrl;
+  private String tiktokUrl;
+  private String whatsappUrl;
+  private String linkedinUrl;
+  private String websiteUrl;
   private LocalDateTime updatedAt;
 }

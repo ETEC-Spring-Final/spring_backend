@@ -56,10 +56,26 @@ public class SiteSettings {
   @Column(name = "facebook_url", length = 255)
   private String facebookUrl;
 
-  @Column(name = "telegram_url", length = 255)
+    @Column(name = "telegram_url", length = 255)
   private String telegramUrl;
+
+  @Column(name = "instagram_url", length = 255)
+  private String instagramUrl;
+
+  @Column(name = "tiktok_url", length = 255)
+  private String tiktokUrl;
+
+  @Column(name = "whatsapp_url", length = 255)
+  private String whatsappUrl;
+
+  @Column(name = "linkedin_url", length = 255)
+  private String linkedinUrl;
+
+  @Column(name = "website_url", length = 255)
+  private String websiteUrl;
 
   @UpdateTimestamp
   @Column(name = "updated_at")
   private LocalDateTime updatedAt;
+  
 }

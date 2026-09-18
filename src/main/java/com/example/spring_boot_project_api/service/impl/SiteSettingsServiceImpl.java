@@ -38,6 +38,11 @@ public class SiteSettingsServiceImpl implements SiteSettingsService {
     settings.setAddress(dto.getAddress());
     settings.setFacebookUrl(dto.getFacebookUrl());
     settings.setTelegramUrl(dto.getTelegramUrl());
+    settings.setInstagramUrl(dto.getInstagramUrl());
+    settings.setTiktokUrl(dto.getTiktokUrl());
+    settings.setWhatsappUrl(dto.getWhatsappUrl());
+    settings.setLinkedinUrl(dto.getLinkedinUrl());
+    settings.setWebsiteUrl(dto.getWebsiteUrl());
 
     SiteSettings saved = siteSettingsRepository.save(settings);
     return toResponse(saved);
@@ -57,14 +62,24 @@ public class SiteSettingsServiceImpl implements SiteSettingsService {
         .address(null)
         .facebookUrl(null)
         .telegramUrl(null)
+        .instagramUrl(null)
+        .tiktokUrl(null)
+        .whatsappUrl(null)
+        .linkedinUrl(null)
+        .websiteUrl(null)
         .build();
     return siteSettingsRepository.save(defaults);
   }
 
+  // ⚠️ Order here MUST match SiteSettingsResponseDTO's @AllArgsConstructor
+  // field order exactly, or values silently shift into the wrong field.
   private SiteSettingsResponseDTO toResponse(SiteSettings s) {
     return new SiteSettingsResponseDTO(
         s.getId(), s.getSiteName(), s.getLogoUrl(), s.getFaviconUrl(),
         s.getContactEmail(), s.getContactPhone(), s.getAddress(),
-        s.getFacebookUrl(), s.getTelegramUrl(), s.getUpdatedAt());
+        s.getFacebookUrl(), s.getTelegramUrl(),
+        s.getInstagramUrl(), s.getTiktokUrl(), s.getWhatsappUrl(),
+        s.getLinkedinUrl(), s.getWebsiteUrl(),
+        s.getUpdatedAt());
   }
 }

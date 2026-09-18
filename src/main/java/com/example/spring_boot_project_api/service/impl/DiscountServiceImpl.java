@@ -1,6 +1,8 @@
 package com.example.spring_boot_project_api.service.impl;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -60,6 +62,21 @@ public class DiscountServiceImpl implements DiscountService {
         .toList();
   }
 
+  /**
+   * FIX (Phase A): backs the new GET /api/discounts/active. This finally puts
+   * the previously-unused findByIsActiveTrue() query to work, then applies the
+   * two rules a plain isActive flag cannot express — the validity window and
+   * the usage cap — so an expired or exhausted code never reaches the booking
+   * form as a selectable promo.
+   */
+  @Override
+  public List<DiscountResponseDTO> getActiveDiscounts() {
+    return discountRepository.findByIsActiveTrue().stream()
+        .filter(this::isRedeemable)
+        .map(this::toResponse)
+        .toList();
+  }
+
   @Override
   @Transactional
   public DiscountResponseDTO updateDiscount(Long id, DiscountRequestDTO dto) {
@@ -99,6 +116,19 @@ public class DiscountServiceImpl implements DiscountService {
 
   // ===== FIX: business rules that were previously missing entirely =====
   private void validateBusinessRules(DiscountRequestDTO dto) {
+    // FIX: guard against a null value before comparing. If DiscountRequestDTO
+    // ever loses its @NotNull (or a test builds the DTO by hand) the old code
+    // threw a raw NullPointerException, which GlobalExceptionHandler turns
+    // into an opaque 500 instead of a readable 400.
+    if (dto.getValue() == null) {
+      throw new RuntimeException("Value is required");
+    }
+    if (dto.getCode() == null || dto.getCode().isBlank()) {
+      throw new RuntimeException("Code is required");
+    }
+    if (dto.getType() == null) {
+      throw new RuntimeException("Discount type is required");
+    }
     if (dto.getValue().compareTo(BigDecimal.ZERO) <= 0) {
       throw new RuntimeException("Value must be greater than 0");
     }
@@ -113,6 +143,45 @@ public class DiscountServiceImpl implements DiscountService {
     if (dto.getMaxUses() != null && dto.getMaxUses() < 1) {
       throw new RuntimeException("Max uses must be at least 1");
     }
+  }
+
+  /** A code is redeemable when it is inside its window and not used up. */
+  private boolean isRedeemable(Discount d) {
+    if (isFutureDate(d.getValidFrom())) {
+      return false; // has not started yet
+    }
+    if (isPastDate(d.getValidTo())) {
+      return false; // already expired
+    }
+    if (d.getMaxUses() != null) {
+      int used = d.getUsedCount() != null ? d.getUsedCount() : 0;
+      if (used >= d.getMaxUses()) {
+        return false; // usage cap reached
+      }
+    }
+    return true;
+  }
+
+  // These two helpers take Object on purpose so they compile whether the
+  // Discount entity declares validFrom/validTo as LocalDate or LocalDateTime.
+  private boolean isFutureDate(Object value) {
+    if (value instanceof LocalDate date) {
+      return date.isAfter(LocalDate.now());
+    }
+    if (value instanceof LocalDateTime dateTime) {
+      return dateTime.isAfter(LocalDateTime.now());
+    }
+    return false; // null → no lower bound
+  }
+
+  private boolean isPastDate(Object value) {
+    if (value instanceof LocalDate date) {
+      return date.isBefore(LocalDate.now());
+    }
+    if (value instanceof LocalDateTime dateTime) {
+      return dateTime.isBefore(LocalDateTime.now());
+    }
+    return false; // null → never expires
   }
 
   private DiscountResponseDTO toResponse(Discount d) {

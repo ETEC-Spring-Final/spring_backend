@@ -1,11 +1,15 @@
 package com.example.spring_boot_project_api.service.impl;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
 import com.example.spring_boot_project_api.dto.request.vehicle.VehicleRequestDTO;
 import com.example.spring_boot_project_api.dto.response.vehicle.VehicleResponseDTO;
+import com.example.spring_boot_project_api.enums.CarTypeEnum;
+import com.example.spring_boot_project_api.enums.FuelTypeEnum;
+import com.example.spring_boot_project_api.enums.TransmissionEnum;
 import com.example.spring_boot_project_api.model.Brand;
 import com.example.spring_boot_project_api.model.Vehicle;
 import com.example.spring_boot_project_api.model.VehicleImage;
@@ -14,6 +18,7 @@ import com.example.spring_boot_project_api.repository.BrandRepository;
 import com.example.spring_boot_project_api.repository.VehicleImageRepository;
 import com.example.spring_boot_project_api.repository.VehicleRepository;
 import com.example.spring_boot_project_api.service.VehicleService;
+import com.example.spring_boot_project_api.specification.VehicleSpecification;
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,7 +27,6 @@ import lombok.RequiredArgsConstructor;
 public class VehicleServiceImpl implements VehicleService {
   private final VehicleRepository vehicleRepository;
   private final BrandRepository brandRepository;
-  // ADDED: needed to cascade-clean images/attachments before deleting a vehicle
   private final VehicleImageRepository vehicleImageRepository;
   private final AttachmentRepository attachmentRepository;
 
@@ -58,7 +62,6 @@ public class VehicleServiceImpl implements VehicleService {
   @Override
   public VehicleResponseDTO getVehicleById(Long id) {
     Vehicle vehicle = vehicleRepository.findById(id).orElseThrow(() -> new RuntimeException("Vehicle not found"));
-
     return toResponse(vehicle);
   }
 
@@ -69,9 +72,17 @@ public class VehicleServiceImpl implements VehicleService {
         .toList();
   }
 
+  // FIX: replaces getAllVehiclesByBrand (was dead code — no controller route
+  // ever called it). Now backs the filter bar + brand chips on the Explore
+  // page: any param left null is simply skipped by VehicleSpecification.
   @Override
-  public List<VehicleResponseDTO> getAllVehiclesByBrand(Long brandId) {
-    return vehicleRepository.findByBrandId(brandId).stream().map(this::toResponse)
+  public List<VehicleResponseDTO> searchVehicles(
+      Long brandId, CarTypeEnum type, TransmissionEnum transmission,
+      FuelTypeEnum fuelType, BigDecimal minPrice, BigDecimal maxPrice, Integer seats) {
+
+    var spec = VehicleSpecification.withFilters(brandId, type, transmission, fuelType, minPrice, maxPrice, seats);
+    return vehicleRepository.findAll(spec).stream()
+        .map(this::toResponse)
         .toList();
   }
 
@@ -108,9 +119,6 @@ public class VehicleServiceImpl implements VehicleService {
       throw new RuntimeException("Vehicle not found");
     }
 
-    // FIXED: delete dependent VehicleImage rows (and their Attachments) first,
-    // otherwise this throws a foreign key constraint violation when the
-    // vehicle has any images attached.
     List<VehicleImage> images = vehicleImageRepository.findByVehicleId(id);
     for (VehicleImage image : images) {
       Long attachmentId = image.getAttachment().getId();

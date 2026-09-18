@@ -2,39 +2,45 @@
 
 Guide for AI coding agents working on this repository. Read this before making changes.
 
-This file covers the **whole project**: the Spring Boot REST API (`spring_backend/`) and the
-Vue 3 frontend (`vue_frontend/`). It also lists recommended next steps at the bottom.
+This file is the **single source of truth** and covers the whole project: the Spring Boot REST
+API (`spring_backend/`) and the Vue 3 frontend (`vue_frontend/`). It is kept in sync with the
+current code. The frontend also has a short pointer file at `vue_frontend/AGENTS.md`.
+
+> **Last verified:** 2026-09-17 against every `@RestController`. If you add/remove an endpoint,
+> update the API tables in §2.6 below.
 
 ---
 
 ## 1. Repository layout
 
 ```
-spring_backend/            # Backend REST API (Spring Boot + Maven)
+spring_backend/            # Backend REST API (Spring Boot 4 + Maven)
 vue_frontend/              # Frontend SPA (Vue 3 + Vite + Tailwind)
-.github/                   # CI / hooks (modernize/java-upgrade)
+.github/                   # CI / hooks
 ```
 
 ---
 
 ## 2. Backend — Spring Boot REST API
 
-### Tech stack
+### 2.1 Tech stack
 
 - **Language / runtime:** Java 21
 - **Framework:** Spring Boot 4.0.8-SNAPSHOT (`spring-boot-starter-parent`)
-- **Persistence:** Spring Data JPA + Hibernate, MySQL (`mysql-connector-j`, local dev on port `3309`, DB `car_rental`, running in Docker container `car-rental-mysql`)
-- **Security:** Spring Security + JWT (`jjwt` 0.12.6) + BCrypt password hashing
+- **Persistence:** Spring Data JPA + Hibernate, MySQL 8 (`mysql-connector-j`). Local dev DB is
+  `car_rental` on port `3309`, in Docker container `car-rental-mysql`. DDL is `ddl-auto=update`.
+- **Security:** Spring Security + JWT (`jjwt` 0.12.6) + BCrypt. Google & Facebook OAuth2 login.
 - **Validation:** Jakarta Bean Validation (`spring-boot-starter-validation`)
-- **API docs:** springdoc-openapi (Swagger UI at `/swagger-ui/index.html`)
+- **API docs:** springdoc-openapi — Swagger UI at `/swagger-ui/index.html`
 - **Boilerplate:** Lombok
-- **Mail:** Spring Mail (SMTP / Gmail) for password reset / notifications
-- **Payments:** Bakong API integration
-- **Uploads:** file.upload-dir (`uploads/`)
-- **Build tool:** Maven — always use the wrapper (`./mvnw` / `mvnw.cmd`), not system `mvn`
+- **Mail:** Spring Mail (SMTP/Gmail) for password reset / notifications
+- **Payments:** Bakong KHQR integration (`bakong-khqr` SDK)
+- **Uploads:** `file.upload-dir=uploads`; the active flow is **Cloudinary-style**: clients POST a
+  `fileUrl` to `/api/attachments` (JSON) — local multipart upload is deprecated (images 404).
+- **Build tool:** Maven — always use the wrapper (`./mvnw` / `mvnw.cmd`), never system `mvn`
 - **Base package:** `com.example.spring_boot_project_api`
 
-### Build, run, test
+### 2.2 Build, run, test
 
 ```bash
 cd spring_backend
@@ -44,306 +50,461 @@ cd spring_backend
 ./mvnw clean package        # build the jar
 ```
 
-On Windows, use `mvnw.cmd` instead of `./mvnw` in PowerShell/CMD.
+On Windows use `mvnw.cmd`. **Never run a production build against a local DB.**
 
-Database config lives in `src/main/resources/application.properties`. Values are read from
-env vars (`DB_HOST`, `DB_USER`, `DB_PASS`, `JWT_SECRET`, `JWT_EXPIRE`, `MAIL_USERNAME`,
-`MAIL_PASSWORD`, `BAKONG_*`). See `.env.example`. **`.env` must be created locally from
-`.env.example` — it is gitignored and never committed.** DDL is `ddl-auto=update`.
+Config lives in `src/main/resources/application.properties`; all secrets come from env vars
+(`DB_HOST`, `DB_USER`, `DB_PASS`, `JWT_SECRET`, `JWT_EXPIRE`, `MAIL_USERNAME`, `MAIL_PASSWORD`,
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET`,
+`BAKONG_ACCOUNT_ID`, `BAKONG_BASE_URL`, `EMAIL`). `.env` is gitignored; create it from
+`.env.example`. **Never commit real secrets.**
 
-Local MySQL runs in Docker:
+Local MySQL in Docker:
+
 ```bash
 docker run --name car-rental-mysql -e MYSQL_ROOT_PASSWORD=<pw> -e MYSQL_DATABASE=car_rental -p 3309:3306 -d mysql:8.0
 ```
 
-### Backend folder structure
+### 2.3 Backend folder structure
 
 ```
 spring_backend/src/main/java/com/example/spring_boot_project_api/
 ├── SpringBootProjectApiApplication.java   # main entry point
-├── config/             # SecurityConfig, JwtAuthFilter, CorsConfig, OpenApiConfig, ...
-│                       #   JacksonConfig, UploadConfig, AuthenticationEventListener,
-│                       #   CustomOAuth2UserService, CustomOAuth2User, OAuth2AuthenticationSuccessHandler
-├── controller/         # @RestController — HTTP layer only, delegates to service
+├── config/
+│   ├── SecurityConfig.java                # filter chain, public routes, CORS source, OAuth2 login
+│   ├── JwtAuthFilter.java                 # parses Bearer token, sets SecurityContext
+│   ├── CorsConfig.java                    # WebMvcConfigurer (allow-all origins, dev only)
+│   ├── OpenApiConfig.java                 # Swagger bearerAuth scheme
+│   ├── JacksonConfig.java                 # (de)serialization tweaks
+│   ├── UploadConfig.java                  # multipart/file-dir beans
+│   ├── AuthenticationEventListener.java   # writes LoginHistory on success/failure
+│   ├── CustomOAuth2UserService.java       # OAuth2 user load (Google/Facebook)
+│   ├── CustomOAuth2User.java
+│   └── OAuth2AuthenticationSuccessHandler.java   # redirects to /oauth2/redirect?token=...
+├── controller/         # @RestController — HTTP layer only
 ├── dto/
-│   ├── request/<resource>/    # inbound validated payloads
+│   ├── request/<resource>/    # inbound, validated payloads
 │   └── response/<resource>/   # outbound payloads
-├── enums/              # CarTypeEnum, FuelTypeEnum, RoleEnum, StatusEnum, RentalStatusEnum,
-│                       #   ReservationStatusEnum, InspectionTypeEnum, DiscountTypeEnum,
-│                       #   AuditActionEnum, FuelLevelEnum, DocumentTypeEnum, GenderEnum,
-│                       #   InvoiceStatusEnum, MaintenanceStatusEnum, MaintenanceTypeEnum,
-│                       #   NotificationTypeEnum, AuthProviderEnum, CarTypeEnum, TransmissionEnum
+├── enums/              # CarType, FuelType, Status, Role, Transmission, RentalStatus,
+│                       # ReservationStatus, InspectionType, DiscountType, AuditAction,
+│                       # FuelLevel, DocumentType, Gender, InvoiceStatus, MaintenanceStatus,
+│                       # MaintenanceType, NotificationType, AuthProvider
 ├── exception/          # GlobalExceptionHandler (@RestControllerAdvice)
-├── mapper/             # model <-> DTO conversion helpers
-├── model/              # @Entity JPA persistence models
+├── mapper/             # model <-> DTO helpers (mostly unused — manual mapping in services)
+├── model/              # @Entity JPA models
 ├── repository/         # Spring Data JPA repositories
-├── service/            # service interfaces
+├── service/            # interfaces
 │   └── impl/           # @Service implementations
-└── util/               # JwtUtil, ClientInfoUtil, and other stateless helpers
+└── util/               # JwtUtil, ClientInfoUtil
 ```
 
-### Domain resources (backend)
+### 2.4 Domain resources
 
-Each resource has model / repository / DTOs / service (+ impl) / controller:
+Each resource has model / repository / DTOs / service (+impl) / controller where applicable:
 
-- **Auth / User:** `User`, `PasswordResetToken`, `LoginHistory`
-- **Vehicle:** `Vehicle`, `VehicleImage`
+- **Auth & users:** `User`, `PasswordResetToken`, `LoginHistory`
+- **Catalog:** `Vehicle`, `VehicleImage`, `Brand`
 - **Booking:** `Reservation`, `ReservationServices`, `Rental`, `RentalDocument`
-- **Payments:** `Invoice`, `Discount`, `DiscountUsage`, Bakong integration
-- **Maintenance:** `MaintenanceRecord`
-- **Audit:** `AuditLog` (tracks CREATE/UPDATE/DELETE actions with actor, entity, old/new values) ✅ **done**
-- **Other:** `Location`, `Favorite`, `Review`, `Notification`, `Services`
-  (maintenance services), `Attachment`, `Inspection`
+- **Payments:** `Invoice`, `Discount`, `DiscountUsage`, Bakong
+- **Service ops:** `MaintenanceRecord`, `Inspection`, `Services`
+- **Customer:** `Favorite`, `Review`, `Notification`
+- **Platform:** `SiteSettings`, `Attachment`, `AuditLog`
 
 Key domain facts:
 
-- Roles: `ADMIN > MANAGER > STAFF > CUSTOMER` (hierarchy in `SecurityConfig`). First registered
-  user becomes `ADMIN`; subsequent registrations default to `CUSTOMER`.
-- Auth: register/login under `/api/auth/**` are public; everything else requires a JWT. Tokens
-  carry subject = email plus `id` and `role` claims. `/api/auth/register` and `/api/auth/login`
-  both return the JWT directly in the response body (`token` field) — no separate login call
-  needed after registering.
-- Vehicles use enums for type / transmission / fuel / status persisted with
-  `@Enumerated(EnumType.STRING)`; license plates are unique.
-- Entity tables follow the `tb_<name>` convention (e.g. `tb_vehicles`) via `@Table`.
-- Rental lifecycle: `Pending → Confirmed → Picked Up → Active Rental → Returned → Completed`.
-- Payments include deposit, insurance, additional services, discount, invoice, and Bakong checks.
-- Admin-only endpoints (e.g. `/api/admin/audit-logs`, `/api/admin/login-history`) are gated with
-  `@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")` and require `@EnableMethodSecurity` on
-  `SecurityConfig` — confirmed working via Swagger UI.
+- Roles: `ADMIN > MANAGER > STAFF > CUSTOMER`. First registered user becomes `ADMIN`; later
+  registrations default to `CUSTOMER`. Method security auto-suffixes roles with `ROLE_`.
+- **Auth:** `/api/auth/register` and `/api/auth/login` are public and return the JWT directly
+  in the body (`token`). Tokens carry subject = email + `id` + `role` claims. Every other route
+  requires a JWT unless explicitly permitted in `SecurityConfig`.
+- **SecurityConfig public allow-list** (keep in sync — the frontend route guards mirror this):
+  - `OPTIONS /**`
+  - `/api/v1/bakong/**`
+  - `/api/auth/**` (URL-level only; most methods are `@PreAuthorize`-gated)
+  - `/oauth2/**`, `/login/oauth2/**`
+  - Swagger docs
+  - `GET /api/vehicles/**`, `GET /api/locations/**`, `GET /api/reviews/vehicle/**`,
+    `GET /api/reviews/*` (but `GET /api/reviews/my-reviews` is JWT), `GET /api/settings`
+  - Everything else → `.anyRequest().authenticated()`.
+- Entity tables use the `tb_<name>` convention (`@Table`).
+- Rental lifecycle: `PENDING → CONFIRMED → PICKED_UP → ACTIVE_RENTAL → RETURNED → COMPLETED`.
+- Inventory statuses (`StatusEnum`): `AVAILABLE / RESERVED / RENTED / MAINTENANCE / UNAVAILABLE`.
 
-### Backend conventions
+### 2.5 Backend conventions
 
 - **Layering:** `controller` → `service` → `repository`. Controllers never touch entities or
-  repositories directly; they work with DTOs and call service interfaces.
-- **DTOs:** never expose JPA `model` classes over the API. Map between models and
-  `dto/request` / `dto/response` types (per-resource sub-packages). Mapping is done manually in
-  services or via the `mapper` package.
-- **Services:** interface in `service/`, implementation annotated `@Service` in `service/impl/`.
-- **Errors:** throw `RuntimeException` with a descriptive message from services;
-  `GlobalExceptionHandler` maps it to HTTP 400. Don't catch-and-swallow in controllers.
-- **Validation:** `jakarta.validation` annotations on request DTOs/entities; controllers
-  activate them with `@Valid @RequestBody`.
-- **Entities:** Lombok `@Data`, `GenerationType.IDENTITY` ids, explicit `@Column` names,
-  `@CreationTimestamp` / `@UpdateTimestamp` audit fields.
-- **Injection:** constructor injection via Lombok `@RequiredArgsConstructor` is preferred; don't
-  mix styles within one class.
-- **Authorization:** protect mutating/admin endpoints with `@PreAuthorize("hasRole('ADMIN')")`
-  (or the appropriate role); method security is enabled globally via `@EnableMethodSecurity`.
-- **Config:** environment-specific values belong in `application.properties`, never hardcoded in
-  Java. Never commit real secrets (use env vars via `.env`, gitignored).
-- **pom.xml:** double-check artifact IDs against the real Spring Boot BOM before adding a
-  dependency by hand — invalid/duplicate artifact IDs silently break the entire dependency
-  resolution and produce misleading "missing classpath" errors across unrelated files.
-- **Swagger auth:** `OpenApiConfig` defines a `bearerAuth` HTTP/Bearer security scheme. To test
-  protected endpoints in Swagger UI: register or log in, copy the `token` value from the response
-  body (not the whole JSON, not the field label), click **Authorize**, paste just the token, then
-  **Authorize → Close**.
+  repositories; they use DTOs and service interfaces.
+- **DTOs:** never expose JPA `model` classes over the API. Map in the service (or `mapper`).
+- **Services:** interface in `service/`, `@Service` implementation in `service/impl/`.
+- **Errors:** throw `RuntimeException` with a clear message; `GlobalExceptionHandler` maps to
+  HTTP 400. `@PreAuthorize` denial → 403, auth failure → 401.
+- **Validation:** `jakarta.validation` on request DTOs + `@Valid @RequestBody`.
+- **Entities:** Lombok `@Data`, `GenerationType.IDENTITY`, explicit `@Column`, 
+  `@CreationTimestamp` / `@UpdateTimestamp`.
+- **Injection:** constructor injection via Lombok `@RequiredArgsConstructor`; don't mix with
+  `@Autowired` field injection in the same class.
+- **Current user:** prefer `@AuthenticationPrincipal CustomUserDetails` (see `NotificationController`)
+  over `SecurityContextHolder`. `CustomUserDetails.getId()` is the user id.
+- **Authorization:** `@PreAuthorize("hasAnyRole('ADMIN','MANAGER'|...)")` on controllers;
+  `@EnableMethodSecurity` is on.
+- **pom.xml:** double-check artifact IDs against the real Spring Boot BOM before hand-adding a
+  dependency — an invalid/duplicate ID silently breaks dependency resolution.
+- **Swagger:** authorize with the raw `token` string (not the whole JSON).
 
-### Backend API reference (complete)
+### 2.6 Backend API reference (complete, verified 2026-09)
 
-#### Auth (public)
+Auth = the minimum to call the endpoint. "JWT" = any authenticated user. `@PreAuthorize` roles
+are shown in the Auth column. `?page&size` params are Spring `Pageable`.
+
+#### Auth — `/api/auth` (base URL is under `/api/auth/**`, permitted at URL level)
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/api/auth/register` | Public | Register new user |
-| POST | `/api/auth/login` | Public | Login, returns JWT |
-| POST | `/api/auth/logout` | JWT | Logout |
-| POST | `/api/auth/forgot-password` | Public | Request password reset email |
-| POST | `/api/auth/reset-password` | Public | Reset password with token |
+| POST | `/api/auth/register` | Public | Register, returns `AuthResponseDTO` with `token` |
+| POST | `/api/auth/login` | Public | Login, returns `AuthResponseDTO` with `token` |
+| POST | `/api/auth/logout` | JWT | Records logout in LoginHistory |
+| POST | `/api/auth/forgot-password` | Public | Sends reset email |
+| POST | `/api/auth/reset-password` | Public | Resets password with token |
+| GET | `/api/auth/users` | ADMIN, MANAGER | List users (see **dup** note) |
+| GET | `/api/auth/users/{id}` | ADMIN, MANAGER | Get user |
+| PATCH | `/api/auth/users/{id}/role?role=X` | ADMIN | Change role (`RoleEnum`) |
+| PATCH | `/api/auth/users/{id}/active?active=X` | ADMIN, MANAGER | Activate/deactivate |
+| DELETE | `/api/auth/users/{id}` | ADMIN | Delete user |
 
-#### Users
+> **Duplicate surface:** the same user-management endpoints also exist under `/api/users`
+> (ADMIN-only) in `UserManagementController`. Frontend uses `/api/auth/users` in
+> `CustomerManagement.vue` and `/api/users` in `NotificationManagement.vue`. Prefer one —
+> recommend consolidating on `/api/auth/users` (or `/api/admin/users`) and deleting the other.
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/users` | ADMIN | List all users |
-| GET | `/api/users/{id}` | ADMIN | Get user by ID |
-| PUT | `/api/users/{id}` | ADMIN | Update user |
-| DELETE | `/api/users/{id}` | ADMIN | Delete user |
-| GET | `/api/user-profiles/me` | JWT | Get my profile |
-| PUT | `/api/user-profiles/me` | JWT | Update my profile |
-| GET | `/api/user-profiles/me/login-history` | JWT | My login history |
+#### User management — `/api/users` (ADMIN only, duplicates `/api/auth/users`)
 
-#### Vehicles
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET | `/api/users` | ADMIN |
+| GET | `/api/users/{id}` | ADMIN |
+| PATCH | `/api/users/{id}/role?role=X` | ADMIN |
+| PATCH | `/api/users/{id}/active?active=X` | ADMIN |
+| DELETE | `/api/users/{id}` | ADMIN |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/vehicles` | Public | List all vehicles |
-| GET | `/api/vehicles/{id}` | Public | Get vehicle by ID |
-| POST | `/api/vehicles` | ADMIN | Create vehicle |
-| PUT | `/api/vehicles/{id}` | ADMIN | Update vehicle |
-| DELETE | `/api/vehicles/{id}` | ADMIN | Delete vehicle |
-
-#### Vehicle Images
+#### My profile — `/api/user-profiles` (JWT)
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/api/vehicle-images/{vehicleId}` | Public | Get images for a vehicle |
-| POST | `/api/vehicle-images` | ADMIN | Upload vehicle image |
-| DELETE | `/api/vehicle-images/{id}` | ADMIN | Delete vehicle image |
+| GET | `/api/user-profiles/me` | JWT | Full profile (`firstName`,`lastName`,`phone`,`profilePicture`,…) |
+| PUT | `/api/user-profiles/me` | JWT | Update profile |
+| POST | `/api/user-profiles/me/change-password` | JWT | Change password |
+| GET | `/api/user-profiles/me/login-history` | JWT | My login history, paged (default size 8, `loggedInAt` desc) |
 
-#### Locations
+#### Vehicles — `/api/vehicles`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/locations` | Public | List all locations |
-| GET | `/api/locations/{id}` | Public | Get location by ID |
-| POST | `/api/locations` | ADMIN/MANAGER/STAFF | Create location |
-| PUT | `/api/locations/{id}` | ADMIN/MANAGER/STAFF | Update location |
-| DELETE | `/api/locations/{id}` | ADMIN/MANAGER/STAFF | Delete location |
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET | `/api/vehicles` | Public |
+| GET | `/api/vehicles/{id}` | Public |
+| POST | `/api/vehicles` | ADMIN |
+| PUT | `/api/vehicles/{id}` | ADMIN |
+| DELETE | `/api/vehicles/{id}` | ADMIN |
 
-#### Reservations
+`VehicleResponseDTO`: `id, brandId, brandName, model, yearOfManufacture, licensePlate, color,
+type (CarTypeEnum), transmission, fuelType, seats, doors, luggages, pricePerDay (BigDecimal),
+mileAge, description, status (StatusEnum), createdAt, updatedAt`.
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/reservations` | ADMIN/MANAGER/STAFF | List all reservations |
-| GET | `/api/reservations/{id}` | JWT | Get reservation by ID |
-| GET | `/api/reservations/my-reservations` | JWT | My reservations |
-| POST | `/api/reservations` | JWT | Create reservation |
-| PUT | `/api/reservations/{id}` | ADMIN/MANAGER/STAFF | Update reservation |
-| PATCH | `/api/reservations/{id}/status?status=X` | ADMIN/MANAGER/STAFF | Change reservation status |
-| PATCH | `/api/reservations/{id}/cancel` | JWT | Cancel reservation |
-| DELETE | `/api/reservations/{id}` | ADMIN/MANAGER/STAFF | Delete reservation |
+> **No server-side search/filter yet** — Explore/Home filter client-side. Add
+> `?q=&type=&brandId=&minPrice=&maxPrice=&status=` to `GET /api/vehicles` to scale.
 
-#### Rentals
+#### Vehicle images — `/api/vehicle-images`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/rentals` | ADMIN/MANAGER/STAFF | List all rentals |
-| GET | `/api/rentals/{id}` | JWT | Get rental by ID |
-| GET | `/api/rentals/my-rentals` | JWT | My rentals |
-| POST | `/api/rentals` | ADMIN/MANAGER/STAFF | Create rental |
-| PUT | `/api/rentals/{id}` | ADMIN/MANAGER/STAFF | Update rental |
-| PATCH | `/api/rentals/{id}/status?status=X` | ADMIN/MANAGER/STAFF | Change rental status |
-| DELETE | `/api/rentals/{id}` | ADMIN/MANAGER/STAFF | Delete rental |
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| GET | `/api/vehicle-images/{vehicleId}` | **JWT in practice** | Comment says "public" but it is NOT in the `SecurityConfig` allow-list — add `GET /api/vehicle-images/**` to permitAll if the detail page should work logged-out |
+| GET | `/api/vehicle-images` | JWT | All images |
+| POST | `/api/vehicle-images` | ADMIN, MANAGER | JSON `{vehicleId, attachmentId}` |
+| PUT | `/api/vehicle-images/{id}` | ADMIN, MANAGER | JSON |
+| DELETE | `/api/vehicle-images/{id}` | ADMIN, MANAGER | |
 
-#### Rental Documents
+2-step image flow used by `VehicleManagement.vue`:
+1. `POST /api/attachments { fileUrl, documentType: "VEHICLE_IMAGE", isPrimary, displayOrder }`
+2. `POST /api/vehicle-images { vehicleId, attachmentId }`.
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/rental-documents/my-rental-document` | JWT | My uploaded documents |
-| POST | `/api/rental-documents/{rentalId}/upload` | JWT | Upload driver document (multipart) |
+Local multipart upload is **deprecated** and commented out (files were written to disk but never
+served → 404 grey-box bug). Use the attachment JSON flow.
 
-#### Favorites
+#### Brands — `/api/brands`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/favorites` | JWT | List my favorites |
-| POST | `/api/favorites/{vehicleId}` | JWT | Add to favorites |
-| DELETE | `/api/favorites/{vehicleId}` | JWT | Remove from favorites |
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET | `/api/brands` | JWT (not in public allow-list) |
+| GET | `/api/brands/{id}` | JWT |
+| POST | `/api/brands` | ADMIN, MANAGER, STAFF |
+| PUT | `/api/brands/{id}` | ADMIN, MANAGER, STAFF |
+| DELETE | `/api/brands/{id}` | ADMIN, MANAGER, STAFF |
 
-#### Reviews
+#### Locations — `/api/locations`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/reviews/vehicle/{vehicleId}?page=X&size=Y` | Public | Reviews for a vehicle (paginated) |
-| GET | `/api/reviews/vehicle/{vehicleId}/count?rating=X` | Public | Count reviews by rating |
-| GET | `/api/reviews/my-reviews` | JWT | My reviews (paginated) |
-| GET | `/api/reviews` | ADMIN/MANAGER/STAFF | All reviews (paginated) |
-| GET | `/api/reviews/{id}` | JWT | Get review by ID |
-| POST | `/api/reviews` | JWT | Create review |
-| PUT | `/api/reviews/{id}` | JWT | Update review |
-| DELETE | `/api/reviews/{id}` | JWT | Delete review |
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET | `/api/locations` | Public |
+| GET | `/api/locations/{id}` | Public |
+| POST | `/api/locations` | ADMIN, MANAGER, STAFF |
+| PUT | `/api/locations/{id}` | ADMIN, MANAGER, STAFF |
+| DELETE | `/api/locations/{id}` | ADMIN, MANAGER, STAFF |
 
-#### Invoices
+#### Reservations — `/api/reservations`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/invoices/my-invoices` | JWT | My invoices |
-| GET | `/api/invoices` | ADMIN/MANAGER/STAFF | All invoices |
-| GET | `/api/invoices/{id}` | JWT | Get invoice by ID |
-| POST | `/api/invoices` | ADMIN/MANAGER/STAFF | Create invoice |
-| PUT | `/api/invoices/{id}` | ADMIN/MANAGER/STAFF | Update invoice |
-| DELETE | `/api/invoices/{id}` | ADMIN/MANAGER/STAFF | Delete invoice |
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| POST | `/api/reservations` | JWT | Create (no overlap pre-check yet — TODO in code) |
+| GET | `/api/reservations/{id}` | JWT | Owner-scoped in service |
+| GET | `/api/reservations/my-reservations` | JWT | |
+| GET | `/api/reservations` | ADMIN, MANAGER, STAFF | |
+| PATCH | `/api/reservations/{id}/status?status=X` | ADMIN, MANAGER, STAFF | `ReservationStatusEnum` |
+| PATCH | `/api/reservations/{id}/cancel` | JWT | Owner |
+| PUT | `/api/reservations/{id}` | ADMIN, MANAGER, STAFF | |
+| DELETE | `/api/reservations/{id}` | ADMIN, MANAGER, STAFF | |
 
-#### Discounts
+`ReservationResponseDTO`: `id, userId, vehicleId, pickUpLocationId, returnLocationId,
+pickUpDateTime, returnDateTime, status, totalPrice, depositAmount, discountAmount,
+additionalCharges, notes, createdAt, updatedAt`.
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/discounts` | Public | List available discounts |
-| POST | `/api/discounts` | ADMIN | Create discount |
-| PUT | `/api/discounts/{id}` | ADMIN | Update discount |
-| DELETE | `/api/discounts/{id}` | ADMIN | Delete discount |
+#### Reservation services (add-ons per reservation) — `/api/reservation-services`
 
-#### Discount Usage
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| POST | `/api/reservation-services` | JWT |
+| GET | `/api/reservation-services/{id}` | JWT |
+| GET | `/api/reservation-services/my-reservation-services` | JWT |
+| GET | `/api/reservation-services` | ADMIN, MANAGER, STAFF |
+| PUT | `/api/reservation-services/{id}` | JWT (no `@PreAuthorize` — consider owner/role check) |
+| DELETE | `/api/reservation-services/{id}` | JWT (ditto) |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/discount-usages` | ADMIN | List all discount usages |
-| POST | `/api/discount-usages` | ADMIN | Record discount usage |
+#### Rentals — `/api/rentals`
 
-#### Notifications
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| POST | `/api/rentals` | ADMIN, MANAGER, STAFF |
+| GET | `/api/rentals/{id}` | JWT (owner-scoped in service) |
+| GET | `/api/rentals/my-rentals` | JWT |
+| GET | `/api/rentals` | ADMIN, MANAGER, STAFF |
+| PUT | `/api/rentals/{id}` | ADMIN, MANAGER, STAFF |
+| PATCH | `/api/rentals/{id}/status?status=X` | ADMIN, MANAGER, STAFF |
+| DELETE | `/api/rentals/{id}` | ADMIN, MANAGER, STAFF |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/notifications/me/inbox` | JWT | My notification inbox |
-| POST | `/api/notifications/{userId}/notify` | ADMIN/MANAGER/STAFF | Send notification to user |
+`RentalResponseDTO`: `id, reservationId, vehicleId, userId, pickUpLocationId, returnLocationId,
+pickUpDateTime, expectedReturnDateTime, actualReturnDateTime, status, basePrice, discountAmount,
+additionalCharges, lateFee, totalPrice, notes, createdAt, updatedAt`.
 
-#### Inspections
+#### Rental documents — `/api/rental-documents`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/inspections/rental/{rentalId}` | JWT | Inspection report for a rental |
-| POST | `/api/inspections` | ADMIN/MANAGER/STAFF | Create inspection |
-| PUT | `/api/inspections/{id}` | ADMIN/MANAGER/STAFF | Update inspection |
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| POST | `/api/rental-documents` | ADMIN, MANAGER, STAFF | JSON `{rentalId, attachmentId}` |
+| GET | `/api/rental-documents/my-rental-document` | JWT | Owner's docs |
+| GET | `/api/rental-documents/{id}` | ADMIN, MANAGER, STAFF | |
+| GET | `/api/rental-documents/rental/{rentalId}` | ADMIN, MANAGER, STAFF | |
+| GET | `/api/rental-documents` | ADMIN, MANAGER, STAFF | |
+| PATCH | `/api/rental-documents/{id}?documentType=X` | ADMIN, MANAGER, STAFF | |
+| DELETE | `/api/rental-documents/{id}` | ADMIN, MANAGER, STAFF | |
 
-#### Maintenance Records
+> Multi-part upload (`POST /api/rental-documents/{rentalId}/upload`) was **deprecated/removed**,
+> but `vue_frontend/src/services/rentals.js` still calls it. Same 2-step attachment flow as
+> vehicle images. Fix the frontend before relying on doc upload.
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/maintenance-records` | ADMIN/MANAGER/STAFF | List all maintenance records |
-| GET | `/api/maintenance-records/{id}` | ADMIN/MANAGER/STAFF | Get by ID |
-| POST | `/api/maintenance-records` | ADMIN/MANAGER/STAFF | Create maintenance record |
-| PUT | `/api/maintenance-records/{id}` | ADMIN/MANAGER/STAFF | Update maintenance record |
-| DELETE | `/api/maintenance-records/{id}` | ADMIN/MANAGER/STAFF | Delete maintenance record |
+#### Favorites — `/api/favorites` (JWT)
 
-#### Services (maintenance services / add-ons)
+| Method | Endpoint |
+|--------|----------|
+| POST | `/api/favorites/{vehicleId}` |
+| GET | `/api/favorites` |
+| DELETE | `/api/favorites/{vehicleId}` |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/services` | Public | List all services |
-| GET | `/api/services/{id}` | Public | Get service by ID |
-| POST | `/api/services` | ADMIN/MANAGER/STAFF | Create service |
-| PUT | `/api/services/{id}` | ADMIN/MANAGER/STAFF | Update service |
-| DELETE | `/api/services/{id}` | ADMIN/MANAGER/STAFF | Delete service |
+#### Reviews — `/api/reviews`
 
-#### Attachments
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| POST | `/api/reviews` | JWT | |
+| PUT | `/api/reviews/{id}` | JWT | Owner |
+| DELETE | `/api/reviews/{id}` | JWT | Owner |
+| PATCH | `/api/reviews/{id}/visibility` | ADMIN, MANAGER, STAFF | Moderation (hide/show) `{isVisible}` |
+| GET | `/api/reviews/{id}` | Public | |
+| GET | `/api/reviews/vehicle/{vehicleId}` | Public | Paged (default size 8) |
+| GET | `/api/reviews/vehicle/{vehicleId}/count?rating=X` | Public | Count for a rating |
+| GET | `/api/reviews/my-reviews` | JWT | Paged |
+| GET | `/api/reviews` | ADMIN, MANAGER, STAFF | Paged (all reviews) |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/attachments` | ADMIN | List all attachments |
-| POST | `/api/attachments` | ADMIN | Upload attachment |
-| DELETE | `/api/attachments/{id}` | ADMIN | Delete attachment |
+#### Invoices — `/api/invoices`
 
-#### Admin-only
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| POST | `/api/invoices` | ADMIN, MANAGER, STAFF |
+| GET | `/api/invoices/{id}` | JWT |
+| GET | `/api/invoices/my-invoices` | JWT |
+| GET | `/api/invoices` | ADMIN, MANAGER, STAFF |
+| PUT | `/api/invoices/{id}` | ADMIN, MANAGER, STAFF |
+| DELETE | `/api/invoices/{id}` | ADMIN, MANAGER, STAFF |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/admin/audit-logs` | ADMIN/MANAGER | List audit logs |
-| GET | `/api/admin/login-history` | ADMIN/MANAGER | All users' login history |
+`InvoiceResponseDTO`: `id, rentalId, invoiceNumber, issueDate, dueDate, subtotal, discountAmount,
+taxAmount, lateFee, totalAmount, status (InvoiceStatusEnum), createdAt`.
 
-#### Bakong Payments
+#### Discounts — `/api/discounts`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/v1/bakong/generate-qr` | Public | Generate Bakong QR code |
-| POST | `/api/v1/bakong/check-payment` | Public | Check payment status |
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| POST | `/api/discounts` | ADMIN, MANAGER | |
+| GET | `/api/discounts` | ADMIN, MANAGER | Was Public before — **now gated** |
+| GET | `/api/discounts/{id}` | ADMIN, MANAGER | |
+| PUT | `/api/discounts/{id}` | ADMIN, MANAGER | |
+| DELETE | `/api/discounts/{id}` | ADMIN | |
+
+> ⚠ **Frontend mismatch:** `reservations.js` `getDiscounts()` calls `GET /api/discounts` from the
+> customer reservation form → 403 for customers. Also `DiscountManagement.vue` calls
+> `GET /api/discounts/active`, which does **not exist** (only `GET /api/discounts`). Either add a
+> public read path `/api/discounts?active=true` for customers, or remove the promo-code lookup
+> from the customer form (the backend already applies discounts via the reservation DTO).
+
+#### Discount usage — `/api/discount-usages`
+
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| POST | `/api/discount-usages` | JWT |
+| GET | `/api/discount-usages/{id}` | JWT |
+| GET | `/api/discount-usages/my-discount-usages` | JWT |
+| GET | `/api/discount-usages` | ADMIN, MANAGER, STAFF |
+| PUT | `/api/discount-usages/{id}` | ADMIN, MANAGER, STAFF |
+| DELETE | `/api/discount-usages/{id}` | ADMIN, MANAGER, STAFF |
+
+#### Notifications — `/api/notifications`
+
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| POST | `/api/notifications/{userId}/notify` | ADMIN, MANAGER, STAFF | |
+| GET | `/api/notifications/me/inbox` | JWT | Owner |
+| GET | `/api/notifications/me/unread-count` | JWT | Badge count |
+| PATCH | `/api/notifications/{id}/read` | JWT | Owner |
+| PATCH | `/api/notifications/me/read-all` | JWT | Owner |
+| DELETE | `/api/notifications/{id}` | JWT | Owner |
+| GET | `/api/notifications` | ADMIN, MANAGER, STAFF | All |
+
+`NotificationResponseDTO`: `id, userId, userEmail, type (NotificationTypeEnum), title, message,
+isRead, createdAt`.
+
+#### Inspections — `/api/inspections` (class-level `ADMIN, MANAGER, STAFF`)
+
+| Method | Endpoint |
+|--------|----------|
+| POST | `/api/inspections` |
+| PUT | `/api/inspections/{id}` |
+| DELETE | `/api/inspections/{id}` |
+| GET | `/api/inspections/{id}` |
+| GET | `/api/inspections/rental/{rentalId}` |
+| GET | `/api/inspections/type?type=X` | paged |
+| GET | `/api/inspections` | paged |
+
+#### Maintenance — `/api/maintenance-records`
+
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| POST | `/api/maintenance-records` | ADMIN, MANAGER, STAFF |
+| GET | `/api/maintenance-records/{id}` | JWT (no public allow-list entry) |
+| GET | `/api/maintenance-records` | JWT |
+| PUT | `/api/maintenance-records/{id}` | ADMIN, MANAGER, STAFF |
+| DELETE | `/api/maintenance-records/{id}` | ADMIN, MANAGER |
+
+#### Services (add-on / maintenance services catalog) — `/api/services`
+
+| Method | Endpoint | Auth | ⚠ Note |
+|--------|----------|------|--------|
+| POST | `/api/services` | JWT (no `@PreAuthorize`) | Any logged-in user can create — **gate it** |
+| PUT | `/api/services/{id}` | JWT (no `@PreAuthorize`) | Same |
+| DELETE | `/api/services/{id}` | JWT (no `@PreAuthorize`) | Same |
+| GET | `/api/services` | JWT | Public list intended — add permitAll or a `?active=true` read endpoint |
+| GET | `/api/services/{id}` | JWT | Same |
+
+> The customer reservation form calls `GET /api/services` → customers get 403. Make the catalog
+> readable publicly and restrict writes to staff roles.
+
+#### Attachments — `/api/attachments` (ADMIN, MANAGER, STAFF)
+
+| Method | Endpoint | Notes |
+|--------|----------|-------|
+| POST | `/api/attachments` | JSON `{fileUrl, documentType, isPrimary, displayOrder}` |
+| POST | `/api/attachments/upload` | Multipart (deprecated on disk; do not rely on it) |
+| GET | `/api/attachments/{id}` | |
+| GET | `/api/attachments` | |
+| PUT | `/api/attachments/{id}` | |
+| DELETE | `/api/attachments/{id}` | |
+
+#### Site settings — `/api/settings`
+
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| GET | `/api/settings` | Public | Site branding + contact (`SiteSettingsResponseDTO`: `id, siteName, logoUrl, faviconUrl, contactEmail, contactPhone, address, facebookUrl, telegramUrl, updatedAt`) |
+| PUT | `/api/settings` | ADMIN, MANAGER | Update branding |
+
+#### Admin — `/api/admin`
+
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| GET | `/api/admin/audit-logs` | ADMIN, MANAGER | Filters `entityName`, `userId`, `action`; paged |
+| GET | `/api/admin/audit-logs/{entityName}/{entityId}` | ADMIN, MANAGER | Paged |
+| GET | `/api/admin/login-history?email=X` | ADMIN, MANAGER | Paged |
+
+#### Bakong payments — `/api/v1/bakong` (Public — `@CrossOrigin` at controller)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/bakong/generate-qr` | Returns KHQR response/data |
+| POST | `/api/v1/bakong/qr-image` | Returns PNG bytes |
+| POST | `/api/v1/bakong/check-transaction` | Check payment by MD5 (`CheckTransactionRequest`) |
+
+> ⚠ **Frontend mismatch:** `invoices.js` / `invoice.service.js` still call
+> `/api/v1/bakong/check-payment` and send `{ invoiceId }` — the real endpoints are
+> `/generate-qr`, `/qr-image`, `/check-transaction`. Confirm `BakongRequest`,
+> `CheckTransactionRequest`, `BakongResponse` shapes before wiring payment UI.
+
+#### Test / role probes — `/api/test`
+
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET | `/api/test/customer` | CUSTOMER |
+| GET | `/api/test/admin` | ADMIN |
+| GET | `/api/test/manager` | MANAGER |
+| GET | `/api/test/staff` | STAFF |
+| GET | `/api/test/any` | JWT |
+
+### 2.7 Known backend issues / gaps (fix candidates)
+
+1. **Mutex/duplicate user-management** endpoints (`/api/auth/users` vs `/api/users`). Consolidate.
+2. **`GET /api/vehicle-images/**` is not public** although the vehicle detail page needs it
+   logged-out. Add it to the `SecurityConfig` public allow-list.
+3. **`/api/services` write endpoints are unguarded** (any authenticated user). Add
+   `@PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF')")`.
+4. **Discounts & services & maintenance GETs aren't customer-readable** — customer flows
+   (reservation form, explore) 403 on `GET /api/discounts`, `GET /api/services`.
+5. **Reservation overlap check** is TODO — two customers can double-book one vehicle.
+6. **AuditLog** is written nowhere yet (endpoints + service exist).
+7. **No real analytics/reporting endpoint** — `Dashboard.vue` computes stats client-side.
+8. **No server-side vehicle search/filter** — everything client-side.
+9. **Bakong** request/response shapes not pinned; frontend calls stale endpoints.
+10. **Test coverage** — `src/test/java` essentially empty; add `@WebMvcTest`, `@DataJpaTest`,
+    service unit tests (price math, discount, reservation status transitions, Bakong).
+11. **IllegalState/no overlap guard on rentals** — creating a rental for an already-rented vehicle.
 
 ---
 
 ## 3. Frontend — Vue 3 SPA (current state)
 
-### Tech stack
+### 3.1 Tech stack
 
-- **Framework:** Vue 3 (`<script setup>` style) + Composition API
-- **Build:** Vite 8 (`@vitejs/plugin-vue`)
-- **Styling:** Tailwind CSS 4 via `@tailwindcss/vite` (fonts via Google Fonts in `style.css`)
-- **Routing:** Vue Router (history mode) — `@` alias → `src/`
-- **HTTP:** Axios (central `services/api.js`, `baseURL: "/api"`, Vite proxy → `http://localhost:8080`)
-- **State:** lightweight reactive store (`stores/auth.store.js`), not Pinia yet
+- **Framework:** Vue 3 (`<script setup>` + Composition API)
+- **Build:** Vite (`@vitejs/plugin-vue`)
+- **Styling:** Tailwind CSS 4 via `@tailwindcss/vite`
+- **Routing:** Vue Router (history mode); `@` alias → `src/`
+- **HTTP:** Axios (`services/api.js`, `baseURL: "/api"`, Vite proxy → `http://localhost:8080`)
+- **I18n:** `vue-i18n` (legacy:false), locales `en` / `km` (`src/i18n/`)
+- **State:** lightweight `reactive()` stores (`auth`, `siteSettings`, `theme`) — **not Pinia**
+- **Charts:** `chart.js` + `vue-chartjs` (dashboard usage/analytics)
 - **Package manager:** npm
 
-### Frontend commands
+### 3.2 Frontend commands
 
 ```bash
 cd vue_frontend
@@ -353,354 +514,364 @@ npm run build     # production build
 npm run preview   # preview the build
 ```
 
-### Frontend folder structure (current)
+### 3.3 Frontend folder structure
 
 ```
 vue_frontend/src/
-├── App.vue                       # root — mounts <AppHeader /> globally + <RouterView />
-├── main.js                       # createApp + router
-├── style.css                     # global styles + Tailwind + Google Fonts
+├── App.vue                       # router-view + page transition (header NOT global anymore)
+├── main.js                       # router + i18n + fetchSettings() before mount
+├── style.css                     # Tailwind + CSS-variable theming (:root + .dark) + fonts
 ├── components/
-│   ├── base/                     # BaseButton.vue, BaseInput.vue (reusable primitives)
-│   ├── layout/                   # AppHeader.vue, AppSidebar.vue, NotificationBell.vue
+│   ├── base/                     # BaseButton.vue, BaseInput.vue
+│   ├── common/                   # LanguageSwitcher.vue, ThemeToggle.vue
+│   ├── layout/                   # AppHeader.vue (legacy hex), SiteHeader.vue (themed),
+│   │                              #   AppSidebar.vue, NotificationBell.vue
+│   ├── notifications/            # NotificationBell.vue (dup of layout/ — see cleanup)
+│   ├── reviews/                  # StarRating.vue, ReviewList.vue, ReviewForm.vue
 │   ├── ui/                       # DataTable.vue, Modal.vue
-│   ├── vehicles/                 # VehicleCard.vue
-│   └── reviews/                  # StarRating.vue, ReviewList.vue, ReviewForm.vue
-├── composables/                  # useFetch.js
-├── layouts/                      # FrontLayout.vue (placeholder/unused), BackLayout.vue (used)
-│                                  #   AppHeader.vue (duplicate — see cleanup note)
+│   └── vehicles/                 # VehicleCard.vue
+├── composables/                  # useFetch.js, useSidebar.js, useTheme.js
+├── i18n/                         # index.js + locales/{en,km}.json
+├── layouts/                      # AuthLayout.vue (login/register), BackLayout.vue (admin shell)
 ├── pages/
-│   ├── auth/                     # Login, Register, ForgotPassword, ResetPassword, OAuth2Redirect
-│   ├── dashboard/                # Dashboard.vue, VehicleManagement.vue, LocationManagement.vue
+│   ├── auth/                     # LoginForm, RegisterForm, ForgotPassword, ResetPassword, OAuth2Redirect
+│   ├── dashboard/                # Dashboard + AdminProfile + all 14 admin CRUD pages + Settings
 │   ├── explore/                  # Explore.vue
-│   ├── vehicles/                 # VehicleDetail.vue
-│   ├── reservations/             # ReservationForm.vue, MyReservations.vue
 │   ├── favorites/                # Favorites.vue
-│   ├── rentals/                  # RentalHistory.vue
+│   ├── home/                     # Home.vue (+ home/home/Card.vue — odd nesting)
 │   ├── invoices/                 # InvoiceList.vue, InvoiceDetail.vue
 │   ├── notifications/            # Notifications.vue
-│   ├── profile/                  # Profile.vue (info + login history + my reviews + favorites)
-│   ├── home/                     # Home.vue (real data), home/Card.vue
-│   ├── preview/                  # demo landing (unused for real app; Preview.vue)
+│   ├── preview/                  # Preview.vue (demo landing) + components/ {LeftPannel, RightPannel, PreText}
+│   ├── profile/                  # Profile.vue
+│   ├── rentals/                  # RentalHistory.vue
+│   ├── reservations/             # ReservationForm.vue, MyReservations.vue
+│   ├── vehicles/                 # VehicleDetail.vue
 │   └── NotFound.vue
-├── router/                       # index.js (routes + auth/role guards)
-├── services/                     # api.js + per-domain services (see below)
-└── stores/                       # auth.store.js (reactive store, localStorage)
+├── router/index.js               # routes + auth/role guards + /oauth2/redirect
+├── services/                     # api.js + feature services (see below)
+└── stores/                       # auth.store.js, siteSettings.store.js, theme.store.js
 ```
 
-### Frontend services (`src/services/`)
+### 3.4 Frontend services (`src/services/`)
 
-| File | Exports | Endpoints |
-|------|---------|-----------|
-| `api.js` | `api` (axios), `TOKEN_KEY` | baseURL `/api`, JWT interceptor, 401 → login |
-| `vehicles.js` | fetchVehicles, fetchVehicleById, fetchVehicleImages, fetchVehicleReviews, fetchMyFavorites, addFavorite, removeFavorite, normalizeVehicle, normalizeVehicleDetail, normalizeImage, normalizeReview | vehicles, vehicle-images, reviews/vehicle, favorites |
-| `reservations.js` | createReservation, getMyReservations, getReservationById, cancelReservation, updateReservationStatus, getLocations, getServices, getDiscounts, **calculatePriceBreakdown** | reservations + locations/services/discounts lookups |
-| `rentals.js` | getMyRentals, getRentalById, uploadRentalDocument, getMyRentalDocuments, getRentalInspection, **RENTAL_STATUS_STEPS**, **rentalStatusStepIndex** | rentals, rental-documents, inspections |
-| `invoices.js` | default: myInvoices, getById, generateQr, checkPayment | invoices, v1/bakong |
-| `favorites.js` | getFavorites | favorites |
-| `reviews.js` | default: forVehicle, countByRating, myReviews, getById, create, update, remove | reviews |
-| `notifications.js` | default: inbox | notifications/me/inbox |
-| `profile.js` | default: me, updateMe, loginHistory | user-profiles/me |
-| `dashboard.js` | fetchDashboardStats (client-side stats from /vehicles + /reservations + /rentals) | — |
+| File | Endpoints used | Notes |
+|------|----------------|-------|
+| `api.js` | axios base, `TOKEN_KEY` | JWT interceptor; 401 only logs out when a token was attached; 403 is left to callers |
+| `vehicles.js` | vehicles, vehicle-images, reviews/vehicle, favorites | Normalizers `normalizeVehicle*`, `normalizeImage`, `normalizeReview` |
+| `reservations.js` | reservations, locations, services, discounts | `calculatePriceBreakdown` helper; **`getDiscounts`/`getServices` will 403 for customers** |
+| `rentals.js` | rentals, rental-documents, inspections | **calls removed `/rental-documents/{id}/upload`**; `RENTAL_STATUS_STEPS` timeline |
+| `invoices.js` | invoices, v1/bakong | ⚠ **stale Bakong endpoints** (`check-payment`) — duplicate of `invoice.service.js` |
+| `invoice.service.js` | invoices, v1/bakong | ⚠ same stale Bakong shapes; used by `InvoiceManagement.vue` |
+| `favorites.js` | favorites | tiny — add/remove live in `vehicles.js` |
+| `reviews.js` | reviews | duplicate of `reviews.service.js` |
+| `reviews.service.js` | reviews (+ `/visibility`) | used by `ReviewManagement.vue` |
+| `notifications.js` | notifications/me/inbox | duplicate of `notifications.service.js` |
+| `notifications.service.js` | inbox, unread-count, read, read-all, delete, notify, all | used by admin + bell |
+| `profile.js` | user-profiles/me (+login-history) | duplicate of `profile.service.js` |
+| `profile.service.js` | me, updateMe, change-password, login-history | used by `AdminProfile.vue` + auth store |
+| `dashboard.js` | vehicles, reservations, rentals | **client-side stats** — swap for `/api/admin/stats` when built |
+| `discount.service.js` | discounts | calls nonexistent `GET /api/discounts/active` |
+| `maintenance.service.js` | maintenance-records | CRUD |
+| `siteSettings.service.js` | settings | `getSiteSettings` / `updateSiteSettings` |
 
-> **Note:** `invoices.js` generateQr/checkPayment request/response shapes are marked
-> "confirm against backend" in comments — verify against `BakongController` when wiring payment.
-> `dashboard.js` computes stats client-side; swap for a real `/api/admin/stats` endpoint when the
-> backend adds one.
+> **Cleanup:** `invoices.js` ↔ `invoice.service.js`, `reviews.js` ↔ `reviews.service.js`,
+> `notifications.js` ↔ `notifications.service.js`, `profile.js` ↔ `profile.service.js` are
+> duplicates. Keep one per feature — prefer the `.service.js` variant used by the admin pages OR
+> merge into the plain files used by customer pages, but not both.
 
-### Frontend routes (router/index.js)
+### 3.5 Frontend routes (router/index.js, verified)
 
-Nested routes under `/dashboard` are wrapped by `BackLayout` (sidebar + header). All other routes
-render directly; the global `AppHeader` shows on every page via `App.vue`.
+| Path | Component | Guard |
+|------|-----------|-------|
+| `/` | → `/preview` | — |
+| `/preview` | Preview (demo landing) | — |
+| `/home` | Home (real data) | — |
+| `/explore` | Explore | — (`?q=` seeds search) |
+| `/vehicles/:id` | VehicleDetail | — |
+| `/login` | AuthLayout (mode=login) | guestOnly |
+| `/register` | AuthLayout (mode=register) | guestOnly |
+| `/forgot-password` | ForgotPassword | guestOnly |
+| `/reset-password` | ResetPassword | — |
+| `/oauth2/redirect` | OAuth2Redirect | — |
+| `/reservations` | ReservationForm | requiresAuth (`?vehicleId=`) |
+| `/my-reservations` | MyReservations | requiresAuth |
+| `/favorites` | Favorites | requiresAuth |
+| `/my-rentals` | RentalHistory | requiresAuth |
+| `/my-invoices` | InvoiceList | requiresAuth |
+| `/my-invoices/:id` | InvoiceDetail | requiresAuth |
+| `/notifications` | Notifications | requiresAuth |
+| `/profile` | Profile | requiresAuth |
+| `/dashboard` (BackLayout) | children | requiresAuth + roles [ADMIN, MANAGER, STAFF] |
+| `/dashboard` | Dashboard (stats) | roles |
+| `/dashboard/profile` | AdminProfile | roles |
+| `/dashboard/vehicles` | VehicleManagement | roles |
+| `/dashboard/locations` | LocationManagement | roles |
+| `/dashboard/reservations` | ReservationManagement | roles |
+| `/dashboard/rentals` | RentalManagement | roles |
+| `/dashboard/customers` | CustomerManagement | **ADMIN** |
+| `/dashboard/discounts` | DiscountManagement | **ADMIN** |
+| `/dashboard/invoices` | InvoiceManagement | roles |
+| `/dashboard/reviews` | ReviewManagement | roles |
+| `/dashboard/notifications` | NotificationManagement | roles |
+| `/dashboard/maintenance` | MaintenanceManagement | roles |
+| `/dashboard/services` | ServiceManagement | roles |
+| `/dashboard/audit-logs` | AuditLogManagement | **ADMIN, MANAGER** |
+| `/dashboard/login-history` | LoginHistoryManagement | **ADMIN, MANAGER** |
+| `/dashboard/settings` | Settings | **ADMIN, MANAGER** |
+| `/:pathMatch(.*)*` | NotFound | — |
 
-| Path | Component | Auth | Notes |
-|------|-----------|------|-------|
-| `/` | — | — | redirects to `/preview` (demo) |
-| `/preview` | Preview | — | landing/demo |
-| `/home` | Home | — | real landing, fetches vehicles |
-| `/explore` | Explore | — | public browse/search/filter, `?q=` from Home |
-| `/vehicles/:id` | VehicleDetail | — | public; Rent/favorite actions check auth |
-| `/login` | Login | guestOnly | wired to backend |
-| `/register` | Register | guestOnly | wired to backend |
-| `/forgot-password` | ForgotPassword | guestOnly | |
-| `/reset-password` | ResetPassword | — | accessible from reset email |
-| `/oauth2/redirect` | OAuth2Redirect | — | Google OAuth callback (reads `?token=`, logs in) |
-| `/reservations` | ReservationForm | requiresAuth | `?vehicleId=` from "Rent now" |
-| `/my-reservations` | MyReservations | requiresAuth | list + cancel |
-| `/favorites` | Favorites | requiresAuth | list + remove |
-| `/my-rentals` | RentalHistory | requiresAuth | timeline + document upload |
-| `/my-invoices` | InvoiceList | requiresAuth | |
-| `/my-invoices/:id` | InvoiceDetail | requiresAuth | |
-| `/notifications` | Notifications | requiresAuth | inbox |
-| `/profile` | Profile | requiresAuth | tabs: info / history / reviews / favorites |
-| `/dashboard` → BackLayout | | requiresAuth + roles [ADMIN, MANAGER, STAFF] | sidebar shell |
-| `/dashboard` `` | Dashboard | roles | stat cards |
-| `/dashboard/vehicles` | VehicleManagement | roles | CRUD table + modal |
-| `/dashboard/locations` | LocationManagement | roles | CRUD table + modal |
-| `/:pathMatch(.*)*` | NotFound | — | 404 |
+> **All 14 admin child routes are now registered and implemented.** The old "11 routes 404"
+> gap is closed. Heading is auto-derived from the last URL segment in `BackLayout`.
 
-> **Gap:** `AppSidebar` lists items for `/dashboard/reservations`, `/rentals`, `/customers`,
-> `/discounts`, `/invoices`, `/reviews`, `/notifications`, `/maintenance`, `/services`,
-> `/audit-logs`, `/login-history` — but **only `vehicles` and `locations` child routes exist**.
-> Clicking them falls through to the 404 page. These admin CRUD pages are the biggest remaining
-> build item (see "To do next"). Roles gating: customers/discounts → ADMIN, audit-logs/
-> login-history → ADMIN/MANAGER, rest → any staff role.
+### 3.6 Frontend design system — TWO systems in the codebase
 
-### Frontend conventions
+The app is mid-migration from hard-coded hex to CSS-variable theming. Match whichever system
+the file you're touching already uses.
 
-- **App shell:** `App.vue` renders `<AppHeader />` globally; public pages need no layout wrapper.
-  Admin area uses `BackLayout` (AppSidebar + header w/ NotificationBell + `<RouterView />`)
-  via nested `/dashboard` children.
-- **Service layer:** per-domain files in `services/` (`vehicles.js`, `reservations.js`, …), all
-  through the shared axios instance. Feature-specific helpers (normalizers, price calculation,
-  status timelines) live in the same service file.
-- **Shared UI:** `components/base/` for primitives; `components/ui/` for DataTable/Modal;
-  `components/layout/` for header/sidebar/notifications; domain components under
-  `components/<domain>/` (VehicleCard, StarRating, ReviewList, ReviewForm).
-- **Pages** live under `pages/<feature>/` named after their route (`MyReservations.vue` ↔
-  `/my-reservations`).
-- **Auth:** `stores/auth.store.js` (login/logout/isAuthenticated/hasRole/defaultRedirect).
-  `services/api.js` attaches `Authorization: Bearer` and redirects on 401. Guards enforce
-  `requiresAuth` + `roles`; the `/oauth2/redirect` page decodes the JWT from `?token=` (see
-  `OAuth2AuthenticationSuccessHandler` on the backend).
-- Firebase-style DTO access is defensive: services expose `normalizeVehicle*`,
-  `normalizeImage`, `normalizeReview` because several response field names (e.g.
-  `pricePerDay` vs `dailyRate`, `carType` vs `type`) were assumed, not confirmed. Verify exact
-  DTO shapes via Swagger before relying on them.
-- **Design language** is consistent across pages (see §4). Keep it that way — don't introduce a
-  new look.
+**A. New "themed" system (CSS variables + dark mode + i18n)** — `SiteHeader.vue`, `Home.vue`,
+`BackLayout.vue`, `AppSidebar.vue`, most dashboard pages, `NotificationBell`:
 
----
+- Tokens defined in `style.css` (`:root` light / `.dark` overrides):
+  `--color-bg, --color-surface, --color-border, --color-text, --color-text-secondary,
+  --color-primary, --color-primary-hover, --color-primary-light`.
+- Applied via inline `:style="{ color: 'var(--color-text)' }"` etc. — **not** Tailwind color
+  classes (so Tailwind's dark: variant is not what toggles).
+- Dark mode: `theme.store.js` toggles the `.dark` class on `<html>` (`useTheme()` composable);
+  defaults to OS `prefers-color-scheme`.
+- I18n: `useI18n()` + `$t('...')` keys under `en`/`km`; sidebar + nav + theme labels are
+  translated. `setLocale()` updates `<html lang>`.
+- Fonts: Inter + Noto Sans Khmer (+ Kantumruy Pro via `:lang(km)`).
 
-## 4. Frontend Design System
+**B. Legacy "hard-hex" system** — `AppHeader.vue`, `AuthLayout.vue`, customer pages like
+`VehicleDetail`, `VehicleCard`:
 
-### Brand Colors
+- Palette: primary `#3D5FE0`, hover `#3350C0`, light `#E9EDFB`, dark `#1A2036`, input `#F3F4F6`,
+  hover `#F9FAFB`, border `#E5E7EB`, muted `#9CA3AF`, secondary `#6B7280`, danger `#DC2626`,
+  favorite `#EF4444`, success `#22C55E`.
+- Pill inputs, `rounded-full` buttons, `rounded-2xl` cards, `#1A2036` headings.
 
-| Token | Hex | Usage |
-|-------|-----|-------|
-| `primary` | `#3D5FE0` | Buttons, links, active states, brand accent |
-| `primary-hover` | `#3350C0` | Button/link hover state |
-| `primary-light` | `#E9EDFB` | Avatar backgrounds, active sidebar items, icon containers |
-| `dark` | `#1A2036` | Headings, text, dark card backgrounds |
-| `gray-50/input-bg` | `#F3F4F6` | Input backgrounds, pill shapes, subtle fills |
-| `gray-100/hover-bg` | `#F9FAFB` | Hover backgrounds, table header |
-| `gray-200/border` | `#E5E7EB` | Borders, dividers |
-| `gray-400/muted` | `#9CA3AF` | Placeholder text, muted icons, uppercase labels |
-| `gray-500/secondary` | `#6B7280` | Secondary text, descriptions |
-| `white` | `#FFFFFF` | Card backgrounds, primary surface |
-| `red-600` | `#DC2626` | Error text, delete actions, notification badge |
-| `red-50` | `#FEF2F2` | Error banner background, cancelled badge |
-| `red-500/EF` | `#EF4444` | Favorite heart fill |
-| `green-50` | `#F0FDF4` | Completed/paid badge background |
-| `green-500` | `#22C55E` | Success states |
-
-### Typography
-
-- **Headings:** `text-[#1A2036]` bold. Page titles `text-3xl` (auth/customer pages) or
-  `text-lg`/`text-xl` header titles; dashboard child pages use `text-xl`/`text-2xl`.
-- **Body:** `text-sm`, primary `text-[#1A2036]`, secondary `text-[#6B7280]`.
-- **Labels/uppercase:** `text-xs font-semibold uppercase text-[#9CA3AF]`.
-- **Links:** `text-sm font-semibold text-[#3D5FE0] hover:text-[#3350C0]`.
-
-### Component Patterns
-
-**AppHeader (top nav, global)** — `components/layout/AppHeader.vue`:
-- Left: brand "CarRental" → `/home`. Center nav: Home / Explore, + Favorites / My Reservations /
-  My Rentals when logged in. Right: NotificationBell + Login button (guest) or Logout (user).
-- Mobile: second horizontal scroll row of links.
-
-**AppSidebar (admin)** — `components/layout/AppSidebar.vue`:
-- Fixed `w-64` left column, brand link, `RouterLink` list w/ `active-class="!bg-[#E9EDFB] !text-[#3D5FE0]"`,
-  role-gated items, bottom user block (avatar initials + email + role) + Logout button.
-
-**BackLayout** — `layouts/BackLayout.vue`:
-- `flex h-screen` + `bg-[#F9FAFB]`; `<AppSidebar />` + right column (header `h-16` white with
-  page title derived from route path + `<NotificationBell />`) + scrollable `<main>`.
-- Note: the header title is derived from the last URL segment — child pages should keep paths
-  that read well (e.g. `/dashboard/vehicles` → "Vehicles").
-
-**NotificationBell** — `components/layout/NotificationBell.vue`:
-- Bell icon → `/notifications`, red badge `min-w-[1rem]` with unread count (`9+` cap), fetched
-  from `notificationsApi.inbox()` on mount, non-fatal on error.
-
-**DataTable** — `components/ui/DataTable.vue`:
-- `columns=[{key,label}]`, `rows`, `loading`. Cell override via `#cell-${key}` slot,
-  `#actions` slot with `:row`. Uses scoped resolve `a.b.c`. Empty/Loading states built in.
-
-**Modal** — `components/ui/Modal.vue`:
-- `<Teleport to="body">`, `open` + `title` props, `close` emit, backdrop click closes,
-  `max-w-lg` white card.
-
-**VehicleCard** — `components/vehicles/VehicleCard.vue`:
-- Gradient header (`from-[#1A2036] to-[#3D5FE0]`), type badge, favorite heart (emits
-  `toggle-favorite`), car SVG placeholder, name/price/specs + "Rent now" (emits `rent`).
-
-**Reviews** — `components/reviews/StarRating.vue`, `ReviewList.vue`, `ReviewForm.vue`:
-- Star rating input/display, paginated list, create/edit form.
-
-### Design recipes (still the standard)
+**Style recipes that apply to both** (keep using these):
 
 ```html
-<!-- Pill input -->
-<div class="flex items-center gap-3 rounded-full bg-[#F3F4F6] px-5 py-3.5">
-  <svg class="h-5 w-5 shrink-0 text-[#9CA3AF]">...</svg>
-  <input class="w-full bg-transparent text-sm text-[#1A2036] placeholder:text-[#9CA3AF] outline-none" />
-</div>
-
-<!-- Primary pill button -->
-<button class="w-full rounded-full bg-[#3D5FE0] py-3.5 text-sm font-semibold text-white transition hover:bg-[#3350C0] disabled:opacity-50">
-</button>
-
-<!-- Card -->
-<article class="overflow-hidden rounded-2xl border border-[#E5E7EB]">
-  <div class="p-4">...</div>
-</article>
-
-<!-- Error banner -->
-<div class="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">...</div>
-
-<!-- Status badge -->
-<span class="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-[#E9EDFB] text-[#3D5FE0]">...</span>
-
-<!-- Loading skeleton -->
+<div class="flex items-center gap-3 rounded-full bg-[#F3F4F6] px-5 py-3.5">…pill input…</div>
+<button class="w-full rounded-full bg-[#3D5FE0] py-3.5 text-sm font-semibold text-white hover:bg-[#3350C0]">…</button>
+<article class="overflow-hidden rounded-2xl border border-[#E5E7EB]">…</article>
+<div class="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">…error…</div>
+<span class="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-[#E9EDFB] text-[#3D5FE0]">…status…</span>
 <div class="h-28 animate-pulse rounded-2xl bg-[#F3F4F6]"></div>
 ```
 
+### 3.7 Frontend conventions
+
+- **Pages** live in `pages/<feature>/<Name>.vue` mirroring the route.
+- **HTTP** goes through `services/api.js`; per-feature calls live in a `services/<feature>.js`
+  file. Reuse existing functions — don't duplicate. **Normalizers exist because backend DTO field
+  names were guessed** — verify against §2.6 / Swagger, then fix the normalizer, not the template.
+- **Admin CRUD pages** follow the `VehicleManagement.vue` pattern (DataTable + Modal + api calls
+  + error banner + saving state). New admin pages are children of `/dashboard` (BackLayout).
+- **Auth** via `useAuthStore()`: `login`, `logout`, `isAuthenticated()`, `hasRole(...)`,
+  `defaultRedirect()`. Route guards are `meta.requiresAuth` / `meta.roles` / `meta.guestOnly` —
+  don't hand-roll guards in pages.
+- **Shared components** in `components/` (check before writing a new one): `DataTable`, `Modal`,
+  `VehicleCard`, reviews components, `ThemeToggle`, `LanguageSwitcher`.
+- **Site defaults** come from `siteSettings.store.js` (fetched in `main.js` before mount): site
+  name, logo, favicon, contact info — use it instead of hardcoding the brand.
+- **README/AGENTS:** `vue_frontend/AGENTS.md` is the frontend pointer; this file is the source
+  of truth.
+
+### 3.8 Frontend status & known mismatches
+
+| Area | Status |
+|------|--------|
+| Auth (login/register/forgot/reset/OAuth2) | ✅ wired |
+| Public browse (Home/Explore/VehicleDetail) | ✅ real data; brand filter from `vehicle.brand` (naïve — see below) |
+| Reservation flow | ✅ but promo/service lookups 403 for customers |
+| My reservations/rentals/invoices/favorites/notifications/profile | ✅ |
+| Admin dashboard + all 16 dashboard pages | ✅ implemented |
+| i18n (en/km) + dark mode | ⚠ partially — admin header/sidebar themed, but several customer pages still hard-hex |
+| Bakong payment UI | ⚠ stale endpoints, QR/polling unfinished |
+| Rental doc upload | ⚠ calls removed endpoint |
+| Vehicle images on cards/detail | 🟡 `VehicleCard` still SVG placeholder; detail uses attachment flow |
+| Google/frontend OAuth | ✅ `/oauth2/redirect` decodes `?token=` |
+
+**Known frontend issues to fix:**
+- `Home.vue` brand filter uses `v.brand` but the real field is `brandName` → brand chips show
+  "Vehicle" / wrong values. Fix in `normalizeVehicle`.
+- `SiteHeader.vue` brand name is hard-coded `"Wheelo"` (should come from `siteSettings.store.js`).
+- Duplicate header components (`layout/AppHeader.vue` legacy vs `layout/SiteHeader.vue` themed),
+  and duplicate `NotificationBell` under `components/notifications/`.
+- `services/rentals.js` upload, `services/{invoices,invoice}.js` Bakong, `discount.service.js`
+  `/active` — all call stale/nonexistent endpoints.
+- Duplicate service files (see §3.4 cleanup note).
+- `/` still redirects to `/preview` (demo landing) — probably revisit for production.
+
 ---
 
-## 5. Page Status Overview
+## 4. 🎯 Public Website / Marketing Site — redesign roadmap
 
-| Page | Path | Status | Notes |
-|------|------|--------|-------|
-| Home | `/home` | ✅ Live data | fetches `/vehicles`, favorites aware |
-| Explore | `/explore` | ✅ | client-side search + type filter |
-| Vehicle detail | `/vehicles/:id` | ✅ | gallery, specs, status, price, favorites, reviews |
-| Reservation form | `/reservations` | ✅ | price breakdown helper, locations/services/discounts |
-| My reservations | `/my-reservations` | ✅ | list + cancel, status badges |
-| Favorites | `/favorites` | ✅ | |
-| Rental history | `/my-rentals` | ✅ | active/completed groups, timeline, doc upload |
-| Invoices | `/my-invoices` (+ `/my-invoices/:id`) | ✅ | Bakong QR wiring marked TODO |
-| Notifications | `/notifications` | ✅ | |
-| Profile | `/profile` | ✅ | tabs: info, login history, my reviews |
-| Auth (login/register/forgot/reset/oauth) | `/auth/*`, `/oauth2/redirect` | ✅ | all wired |
-| Dashboard home | `/dashboard` | ✅ | client-side stat cards |
-| Vehicle mgmt | `/dashboard/vehicles` | ✅ | DataTable + Modal CRUD |
-| Location mgmt | `/dashboard/locations` | ✅ | DataTable + Modal CRUD |
-| Reservations mgmt | `/dashboard/reservations` | ⬜ | sidebar link, route missing |
-| Rentals mgmt | `/dashboard/rentals` | ⬜ | sidebar link, route missing |
-| Customers mgmt | `/dashboard/customers` | ⬜ | sidebar link (ADMIN), route missing |
-| Discounts mgmt | `/dashboard/discounts` | ⬜ | sidebar link (ADMIN), route missing |
-| Invoices mgmt | `/dashboard/invoices` | ⬜ | sidebar link, route missing |
-| Reviews mgmt | `/dashboard/reviews` | ⬜ | sidebar link, route missing |
-| Notifications mgmt | `/dashboard/notifications` | ⬜ | sidebar link, route missing |
-| Maintenance mgmt | `/dashboard/maintenance` | ⬜ | sidebar link, route missing |
-| Services mgmt | `/dashboard/services` | ⬜ | sidebar link, route missing |
-| Audit logs | `/dashboard/audit-logs` | ⬜ | sidebar link (ADMIN/MANAGER), route missing |
-| Login history | `/dashboard/login-history` | ⬜ | sidebar link (ADMIN/MANAGER), route missing |
-| FrontLayout | `layouts/FrontLayout.vue` | 🟡 unused | placeholder only; App.vue already renders global header |
-| layouts/AppHeader.vue | `src/layouts/AppHeader.vue` | 🟡 duplicate | unused copy of components/layout/AppHeader.vue |
+The user's product direction: **turn the customer-facing site into a real marketing/booking
+website** with more features, while the dashboard/admin area stays as-is. Everything below is a
+**priority-ordered plan** — start from the "must do" list.
+
+### 4.1 What the public site looks like today
+
+- `/home` (Home.vue, themed, real vehicle data) is the de-facto landing — but `/` still serves
+  the static `/preview` demo, not `/home`.
+- `SiteHeader` (brand "Wheelo" hardcoded) + hero carousel + brand chips + "Popular cars" grid.
+- `/explore` (client-side search + type filter), `/vehicles/:id` detail with reviews + favorites.
+- `AuthLayout` login/register already looks polished (brand panel, stats).
+
+### 4.2 Phase A — Fix the foundation first (prereq for any redesign)
+
+- [ ] Switch `/` → `/home` (remove the `/preview` demo redirect once the landing is real).
+- [ ] Resolve the two-header problem: keep **one** public header. Recommend `SiteHeader.vue`
+      (themed, i18n) fed from `siteSettings.store.js` (visitName + logoUrl), delete/absorb
+      `AppHeader.vue` legacy hex or migrate it to CSS vars. Keep 1 `NotificationBell`.
+- [ ] Fix `vehicles.js` normalizers + `Home.vue` brand chips (`brandName`, not `brand`), and
+      terrain: wire real images into `VehicleCard` (attachment flow) so the fleet grid shows cars.
+- [ ] Make the backend public-read endpoints non-403: `GET /api/vehicle-images/**`,
+      `GET /api/services`, `GET /api/discounts?active=true` for customers (§2.7 items 2–4).
+- [ ] Fix Bakong endpoints + rental-doc upload on the customer side (§3.8).
+- [ ] Migrate customer pages (VehicleDetail, VehicleCard, Explore, Profile, invoices/reservations/
+      rentals lists) to the CSS-variable/themed system so dark mode + Khmer i18n work everywhere.
+
+### 4.3 Phase B — Marketing landing page (`/home` → real landing)
+
+- [ ] Hero: keep the carousel; add site settings-driven headline/tagline, CTA buttons
+      ("Browse cars", "Rent today"), and a background image/pattern (use Cloudinary asset).
+- [ ] Sections (each a leaf component under `components/home/`):
+      1. **Hero + search bar** (vehicle type, pickup date, return date → `/explore` with params).
+      2. **Trust bar** — stats from real counts (vehicles, locations, active rentals) or
+         siteSettings.
+      3. **Popular fleet** — top-rated/featured vehicles (reuse `VehicleCard`, real images).
+      4. **How it works** — 3–4 steps (Search → Reserve → Pick up → Drive).
+      5. **Locations** — branch cards from `GET /api/locations`.
+      6. **Reviews/testimonials** — recent 5★ reviews (`GET /api/reviews`) or a new
+         `GET /api/reviews/featured`.
+      7. **Footer** — contact info from `siteSettings` + facebook/telegram links + quick links.
+- [ ] Site header: add nav for Home/Explore/Fleet/How it works/Locations + Contact; login/signup
+      buttons; use `siteSettings.siteName`/`logoUrl`.
+- [ ] i18n: all landing strings in `en.json` / `km.json`.
+
+### 4.4 Phase C — Fleet & detail upgrades
+
+- [ ] **Server-side search/filter**: add `?q=&type=&brandId=&minPrice=&maxPrice=&seats=&
+      transmission=&fuelType=&availableFrom=&availableTo=` to `GET /api/vehicles`, then switch
+      Explore to it (with pagination) instead of client-side filtering.
+- [ ] **Filter sidebar** on `/explore` (type, brand, seats, transmission, fuel, price range),
+      sort (price asc/desc, newest, rating), pagination.
+- [ ] **Availability widget** on `/vehicles/:id` — date range + pickup/return location →
+      disable past/unavailable dates server-side (`GET /api/vehicles/{id}/availability`).
+- [ ] **Vehicle detail**: image gallery (thumbnails + lightbox), spec grid (seats/doors/luggage/
+      fuel/transmission/yr/mileage), price card, insurance/add-on services selector, discount
+      code box (only if backend exposes a safe public lookup), favorite, share, reviews.
+- [ ] **Realtime feel**: skeleton loaders, empty states, optimistic favorite toggles, toasts for
+      mutations (add a small toast composable `composables/useToast.js`).
+
+### 4.5 Phase D — Booking & account flows (customer)
+
+- [ ] **Booking wizard** (`/reservations` → multi-step): 1) Dates & locations, 2) Add-ons &
+      price breakdown (`calculatePriceBreakdown`), 3) Confirm → creates reservation + triggers
+      invoice. Prices should come from a backend `POST /api/reservations/price` (authoritative)
+      rather than client-side math.
+- [ ] **Payment UI**: Bakong QR generation + transaction polling (`/generate-qr`,
+      `/check-transaction`) on invoice/reservation success. Show paid status.
+- [ ] My Reservations / My Rentals / My Invoices: status timelines, countdown badges, doc upload
+      (via the working attachment flow), cancel/confirm dialogs.
+- [ ] **Notifications center**: mark read / read all, types, unread badge (endpoints exist).
+- [ ] **Profile**: avatar upload (attachment flow), change password (exists), language + theme
+      preferences, favorite list.
+
+### 4.6 Phase E — Platform polish for a public site
+
+- [ ] **Public site settings** fully used: name, logo, favicon, contact — no hardcoded brand.
+- [ ] **SEO/OG tags** per route (plugin `@unhead/vue` or manual `useHead`): title from
+      siteSettings, description, image; proper `lang`/`dir`.
+- [ ] **Loading/error boundary** for public pages; 404 page restyled to the marketing look.
+- [ ] **Backend analytics for the marketing site** (optional): popular vehicles, featured
+      reviews, fleet counts — endpoints to be added.
+
+### 4.7 Ordering rule for agents
+
+When asked to "add a feature to the website," do this first: (1) check whether it's blocked by a
+§2.7 / §3.8 known-fix (backend 403 or stale endpoint) — fix the API contract first; (2) check
+which design system the page uses and stay in it (or migrate it); (3) put new UI in
+`components/<domain>/` and new logic in `services/` / `stores/` / `composables/`; (4) feel free
+to add backend endpoints + DTOs following §2.5 conventions to remove client-side hacks.
 
 ---
 
-## 6. "To do next" / Recommended next steps
+## 5. Page status overview (frontend)
 
-### Backend (API completeness)
+| Page | Path | Status |
+|------|------|--------|
+| Preview (demo) | `/preview` | 🟡 demo — reconsider as root |
+| Home / landing | `/home` | ✅ real data; needs marketing sections (Phase B) |
+| Explore | `/explore` | ✅ client-side filter; add server-side + pagination |
+| Vehicle detail | `/vehicles/:id` | ✅; add gallery/availability (Phase C) |
+| Reservation form | `/reservations` | ✅; disc./service lookups 403 for customers |
+| My reservations | `/my-reservations` | ✅ |
+| Favorites | `/favorites` | ✅ |
+| Rental history | `/my-rentals` | ✅; doc upload stale |
+| Invoices | `/my-invoices`(+`/:id`) | ✅; Bakong wiring open |
+| Notifications | `/notifications` | ✅ |
+| Profile | `/profile` | ✅ |
+| Auth pages | `/login` `/register` `/forgot-password` `/reset-password` `/oauth2/redirect` | ✅ |
+| Dashboard home | `/dashboard` | ✅ (client-side stats) |
+| All 14 admin CRUD + profile + settings | `/dashboard/*` | ✅ implemented |
 
-- [x] **AuditLog feature:** model, repository, service (+impl), controller, `AuditActionEnum`,
-      response DTO — implemented, `@PreAuthorize`-protected, verified `200 OK` via Swagger UI.
-- [x] **pom.xml cleanup:** removed duplicate `spring-boot-starter-validation` / `lombok`
-      declarations and invalid artifact IDs.
-- [x] **Method security:** confirmed `@EnableMethodSecurity` on `SecurityConfig`.
-- [ ] **CORS / security audit:** confirm `CorsConfig` allows the Vue dev origin and that JWT
-      routes and role guards are enforced on all protected endpoints.
-- [ ] **Unify error responses:** make `GlobalExceptionHandler` return consistent JSON
-      (`{ status, message, ... }`) and add HTTP status codes beyond 400 (403, 404, 500).
-- [ ] **Repositories/service coverage:** verify every `model` has a full set of endpoints
-      (CRUD + list + search/filter), especially `Rental`, `Reservation`, and filtering) and every
-      service has a corresponding unit test.
-- [ ] **Tests:** add `@WebMvcTest` / `@DataJpaTest` / Mockito service tests under
-      `src/test/java` (currently minimal). Cover reservation/rental price math, discount logic,
-      and Bakong flow.
-- [ ] **Seeding / demo data:** provide a way to seed sample vehicles, locations, customers, and
-      admin user for development.
-- [ ] **Reports/analytics endpoints:** revenue, rental, vehicle-utilization, and monthly
-      summaries (see `info.md` §11) are listed but not yet implemented. The dashboard currently
-      computes stats client-side.
-- [ ] **Notifications:** hook up real notification delivery (email / DB records) for booking
-      confirmed/cancelled, payment, and rental reminders.
-- [ ] **API docs polish:** ensure DTO examples and auth annotations render well in Swagger.
-- [ ] **Wire AuditLog writes:** call `auditLogService.log(...)` from mutating service methods
-      (create/update/delete on Vehicle, Reservation, Rental, User, etc.) — endpoints exist but
-      nothing writes to it yet.
-- [ ] **Confirm DTO field names** used by the frontend services (see services' normalize
-      functions) so frontend assumptions match the actual response JSON.
-- [ ] **Vehicle/other list filtering:** Explore filters client-side because `/api/vehicles`
-      has no documented query params — adding server-side `?q=&type=&minPrice=...` would scale.
+---
 
-### Frontend — remaining work
+## 6. "To do next" — consolidated backlog
 
-#### Phase 1: Admin management pages (biggest gap) — sidebar points at 11 routes that 404
+### Backend (API completeness & correctness)
+- [ ] Add `GET /api/vehicle-images/**` to the public allow-list (or confirm intended JWT-only).
+- [ ] Gate `/api/services` writes behind staff roles; decide public read for the catalog.
+- [ ] Add a public, safe discount lookup (`GET /api/discounts?active=true`) for the booking form.
+- [ ] Reservation/Rental overlap guard (double-booking prevention).
+- [ ] Server-side vehicle search/filter + pagination.
+- [ ] Consolidate `/api/users` vs `/api/auth/users`.
+- [ ] `POST /api/reservations/price` (authoritative price breakdown).
+- [ ] Analytics endpoints: revenue, rentals/mo, utilization, popular vehicles (replace
+      `dashboard.js` client-side stats).
+- [ ] Wire `auditLogService.log(...)` into mutating services.
+- [ ] Pin Bakong request/response DTOs; add tests.
+- [ ] Tests: `@WebMvcTest` / `@DataJpaTest` / Mockito for price, discount, statuses, Bakong, auth.
+- [ ] Seeding/demo-data loader for dev.
+- [ ] Unify error JSON shape (`{ status, message, ... }`) with 403/404/500 codes.
 
-Pattern to copy (already established in `VehicleManagement.vue` / `LocationManagement.vue`):
-DataTable + Modal + create/edit/delete via the shared axios `api`. Register each as a new child
-route under the `/dashboard` BackLayout block in `router/index.js`.
+### Frontend — customer site redesign (see §4 for full plan)
+- [ ] Phase A foundation fixes (§4.2) — do these before anything else.
+- [ ] Phase B landing page sections.
+- [ ] Phase C explore/filters/availability/gallery.
+- [ ] Phase D booking wizard + payment UI + doc upload rework.
+- [ ] Phase E SEO, toasts, empty/loading states, brand-driven settings everywhere.
 
-- [ ] **Reservations** `/dashboard/reservations` — list all (`GET /api/reservations`), change
-      status (`PATCH /api/reservations/{id}/status?status=`).
-- [ ] **Rentals** `/dashboard/rentals` — list all (`GET /api/rentals`), advance lifecycle
-      (`PATCH /api/rentals/{id}/status`).
-- [ ] **Customers** `/dashboard/customers` (ADMIN) — list/activate/deactivate users from
-      `GET /api/users`, role management.
-- [ ] **Discounts** `/dashboard/discounts` (ADMIN) — CRUD `GET/POST/PUT/DELETE /api/discounts`.
-- [ ] **Invoices** `/dashboard/invoices` — list all (`GET /api/invoices`), status management.
-- [ ] **Reviews** `/dashboard/reviews` — list all (`GET /api/reviews`), delete inappropriate.
-- [ ] **Notifications mgmt** `/dashboard/notifications` — send notifications to users
-      (`POST /api/notifications/{userId}/notify`).
-- [ ] **Maintenance** `/dashboard/maintenance` — CRUD maintenance records.
-- [ ] **Services** `/dashboard/services` — CRUD add-on services.
-- [ ] **Audit Logs** `/dashboard/audit-logs` (ADMIN/MANAGER) — `GET /api/admin/audit-logs`.
-- [ ] **Login History** `/dashboard/login-history` (ADMIN/MANAGER) —
-      `GET /api/admin/login-history`.
-
-#### Phase 2: Cleanup
-
-- [ ] **Delete duplicate** `src/layouts/AppHeader.vue` — `App.vue` already uses
-      `components/layout/AppHeader.vue`; keeping two drifts.
-- [ ] **FrontLayout.vue** — either implement (header/footer used by a layout route) or delete;
-      it's currently an unused placeholder because the header is global.
-- [ ] **Invoice payment wiring** — confirm Bakong request/response shapes against
-      `BakongController` and finish QR + payment polling on `InvoiceDetail.vue` / `InvoiceList.vue`.
-- [ ] **Vehicle images on cards** — `VehicleCard.vue` still shows the SVG placeholder; wire
-      `fetchVehicleImages` per vehicle (batch) once image URLs are confirmed.
-- [ ] **Confirm `Home.vue` vehicles** actually render images once image DTO confirmed.
-- [ ] **Root redirect** `/` → `/preview` → change to `/home` for production.
-
-#### Phase 3: Polish
-
-- [ ] Toast/notification feedback for mutations (create/delete/upload) — currently inline errors
-      + no success feedback.
-- [ ] Empty/loading/error states consistency audit across all pages.
-- [ ] Form validation improvements (server error mapping, field-level errors).
+### Frontend — cleanup
+- [ ] Remove duplicate service files (`invoices`, `reviews`, `notifications`, `profile` vs
+      their `.service.js` twins).
+- [ ] Resolve duplicate headers/bells; delete `components/notifications/NotificationBell.vue`.
+- [ ] `home/home/Card.vue` weird nesting — move/flatten.
+- [ ] Make root redirect `/` → `/home` in production.
+- [ ] Finish dark-mode/i18n migration of legacy-hex customer pages.
 
 ### Cross-cutting
-
-- [ ] Environment docs: finalize `.env.example` with real keys and document running both servers
-      together locally.
-- [ ] Deployment: verify Spring profile for production and Vercel SPA rewrite (`vercel.json`)
-      points at the correct API origin; backend OAuth success handler's redirect target.
+- [ ] Document running both servers locally; `.env.example` complete.
+- [ ] Production: Spring profile env, Vercel SPA rewrite (`vercel.json`), OAuth success-handler
+      redirect target, CORS tightened in `CorsConfig` (currently `*`).
 
 ---
 
 ## Notes for agents
 
 - Don't add a new architectural layer or dependency unless the task actually needs it.
-- Keep controller methods thin; business logic belongs in the service layer.
-- When adding a new resource (e.g. `Booking`), create matching files across `model`, `enums`
-  (if needed), `repository`, `dto/request/<resource>`, `dto/response/<resource>`, `mapper`,
-  `service` (+ `impl`), and `controller` — don't skip the DTO/mapper layer.
-- Follow existing naming: `<Resource>Controller`, `<Resource>Service`, `<Resource>ServiceImpl`,
+- Keep controller methods thin; business logic lives in services.
+- New resource → create matching files across `model`, `enums` (if needed), `repository`,
+  `dto/request/<resource>`, `dto/response/<resource>`, `service` (+`impl`), `controller`.
+  Follow the naming: `<Resource>Controller`, `<Resource>Service`, `<Resource>ServiceImpl`,
   `<Resource>Repository`, `<Resource>RequestDTO`, `<Resource>ResponseDTO`.
-- Frontend: put network calls in `services/<feature>.js`, shared UI in `components/ui` and
-  `components/layout`, pages under `pages/<feature>/`. Match the existing design system (§4).
-- Backend: run `./mvnw test` before considering a change complete.
-- Frontend: run `npm run build` (or at least `npm run dev`) to verify changes compile.
+- Frontend: network calls in `services/<feature>.js`, shared UI in `components/<domain>` +
+  `components/ui` + `components/layout`, pages in `pages/<feature>/`. Store data in
+  `stores/`/`composables/`. Match the design system of the file you edit (§3.6).
+- Verify with `./mvnw test` (backend) and `npm run build` (frontend) before calling a change done.
+- After any API change, update §2.6 and the "known gaps" list — agents and the UI team rely on it.

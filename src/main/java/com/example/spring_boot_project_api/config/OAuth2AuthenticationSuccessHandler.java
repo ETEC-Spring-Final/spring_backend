@@ -28,6 +28,11 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
     private final JwtUtil jwtUtil;
 
+    // FIX (Phase A follow-up): once login succeeds we no longer need the
+    // temporary state cookie set by CookieOAuth2AuthorizationRequestRepository
+    // — clear it so it doesn't linger in the browser past this request.
+    private final CookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository;
+
     // Where the Vue app should land after a successful OAuth login. Configure via
     // env var so dev/prod can point at different frontend origins.
     @Value("${app.oauth2.redirect-uri:${OAUTH2_REDIRECT_URI:http://localhost:5173/oauth2/redirect}}")
@@ -38,6 +43,8 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                                          Authentication authentication) throws IOException {
         CustomOAuth2User principal = (CustomOAuth2User) authentication.getPrincipal();
         String token = jwtUtil.generateToken(principal.getUser());
+
+        cookieAuthorizationRequestRepository.removeAuthorizationRequestCookie(response);
 
         String targetUrl = redirectUri + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
         getRedirectStrategy().sendRedirect(request, response, targetUrl);

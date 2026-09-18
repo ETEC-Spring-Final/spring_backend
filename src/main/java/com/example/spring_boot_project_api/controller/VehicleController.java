@@ -1,20 +1,17 @@
 package com.example.spring_boot_project_api.controller;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.example.spring_boot_project_api.dto.request.vehicle.VehicleRequestDTO;
 import com.example.spring_boot_project_api.dto.response.vehicle.VehicleResponseDTO;
+import com.example.spring_boot_project_api.enums.CarTypeEnum;
+import com.example.spring_boot_project_api.enums.FuelTypeEnum;
+import com.example.spring_boot_project_api.enums.TransmissionEnum;
 import com.example.spring_boot_project_api.service.VehicleService;
 
 import jakarta.validation.Valid;
@@ -36,9 +33,18 @@ public class VehicleController {
     return vehicleService.getVehicleById(id);
   }
 
+  // FIX: now actually applies the filters the frontend (Explore page) sends.
+  // All params optional — calling GET /api/vehicles with none still returns everything.
   @GetMapping
-  public List<VehicleResponseDTO> getAllVehicles() {
-    return vehicleService.getAllVehicles();
+  public List<VehicleResponseDTO> getAllVehicles(
+      @RequestParam(required = false) Long brandId,
+      @RequestParam(required = false) CarTypeEnum type,
+      @RequestParam(required = false) TransmissionEnum transmission,
+      @RequestParam(required = false) FuelTypeEnum fuelType,
+      @RequestParam(required = false) BigDecimal minPrice,
+      @RequestParam(required = false) BigDecimal maxPrice,
+      @RequestParam(required = false) Integer seats) {
+    return vehicleService.searchVehicles(brandId, type, transmission, fuelType, minPrice, maxPrice, seats);
   }
 
   @PreAuthorize("hasRole('ADMIN')")

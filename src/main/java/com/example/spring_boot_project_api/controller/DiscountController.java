@@ -2,7 +2,6 @@ package com.example.spring_boot_project_api.controller;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,11 +18,14 @@ import com.example.spring_boot_project_api.service.DiscountService;
 
 import jakarta.validation.Valid;
 
+import lombok.RequiredArgsConstructor;
+
 @RestController
 @RequestMapping("/api/discounts")
+@RequiredArgsConstructor
 public class DiscountController {
-  @Autowired
-  private DiscountService discountService;
+
+  private final DiscountService discountService;
 
   // NOTE: only ADMIN/MANAGER can create, update or delete discounts.
   // Previously there was no @PreAuthorize here at all, so ANY visitor
@@ -35,6 +37,22 @@ public class DiscountController {
   @PostMapping
   public DiscountResponseDTO createDiscount(@Valid @RequestBody DiscountRequestDTO dto) {
     return discountService.createDiscount(dto);
+  }
+
+  /**
+   * FIX (Phase A): the customer booking form and DiscountManagement.vue both
+   * call GET /api/discounts/active, which did not exist — the frontend got a
+   * 404 (or worse, fell through to /{id} and failed to parse "active" as a
+   * Long). This returns only currently-redeemable promo codes and is readable
+   * by any signed-in user, so a CUSTOMER can pick a promo on the reservation
+   * form without being handed the full admin list.
+   *
+   * IMPORTANT: this mapping must be declared so Spring matches the literal
+   * path before the /{id} path-variable mapping below.
+   */
+  @GetMapping("/active")
+  public List<DiscountResponseDTO> getActiveDiscounts() {
+    return discountService.getActiveDiscounts();
   }
 
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")

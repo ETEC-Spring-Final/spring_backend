@@ -33,4 +33,19 @@ public class SiteSettingsRequestDTO {
 
   @Size(max = 255)
   private String telegramUrl;
+
+  @Size(max = 255, message = "Instagram URL must be under 255 characters")
+  private String instagramUrl;
+
+  @Size(max = 255, message = "TikTok URL must be under 255 characters")
+  private String tiktokUrl;
+
+  @Size(max = 255, message = "WhatsApp URL must be under 255 characters")
+  private String whatsappUrl;
+
+  @Size(max = 255, message = "LinkedIn URL must be under 255 characters")
+  private String linkedinUrl;
+
+  @Size(max = 255, message = "Website URL must be under 255 characters")
+  private String websiteUrl;
 }
