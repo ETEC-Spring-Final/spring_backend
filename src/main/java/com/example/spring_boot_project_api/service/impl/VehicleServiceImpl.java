@@ -149,7 +149,9 @@ public class VehicleServiceImpl implements VehicleService {
   }
 
   private VehicleResponseDTO toResponse(Vehicle v) {
-    return new VehicleResponseDTO(v.getId(), v.getBrand().getId(), v.getBrand().getName(), v.getModel(),
+    return new VehicleResponseDTO(v.getId(), v.getBrand().getId(), v.getBrand().getName(),
+        v.getBrand().getImageUrl(),
+        v.getModel(),
         v.getYearOfManufacture(),
         v.getLicensePlate(),
         v.getColor(), v.getType(), v.getTransmission(), v.getFuelType(), v.getSeats(), v.getDoors(), v.getLuggages(),

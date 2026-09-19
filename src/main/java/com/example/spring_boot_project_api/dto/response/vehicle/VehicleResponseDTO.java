@@ -17,6 +17,7 @@ public class VehicleResponseDTO {
   private Long id;
   private Long brandId;
   private String brandName;
+  private String brandImage;
   private String model;
   private Integer yearOfManufacture;
   private String licensePlate;
