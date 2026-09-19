@@ -11,6 +11,9 @@ public interface AuditLogService {
   void log(Long userId, AuditActionEnum action, String entityName, Long entityId,
       Object oldValue, Object newValue, String description);
 
+  void log(Long userId, String ipAddress, AuditActionEnum action, String entityName, Long entityId,
+      Object oldValue, Object newValue, String description);
+
   Page<AuditLogResponseDTO> getAllAuditLogs(String entityName, Long userId, AuditActionEnum action,
       Pageable pageable);
 
