@@ -1,0 +1,7 @@
+target/
+.env
+.git/
+*.log
+test.html
+.mvn/wrapper/
+.ipynb_checkpoints/

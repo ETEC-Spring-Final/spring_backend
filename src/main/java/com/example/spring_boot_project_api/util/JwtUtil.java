@@ -17,9 +17,10 @@ import io.jsonwebtoken.security.Keys;
 @Component
 public class JwtUtil {
 
-  // Added default fallback values using the : operator in case properties are
-  // missing
-  @Value("${jwt.secret:${JWT_SECRET:myVerySecretKeyThatIsAtLeast32BytesLongForHS256Algorithm!}}")
+  // Required from env (JWT_SECRET). No fallback default: a missing secret
+  // must fail fast at startup instead of silently signing tokens with a
+  // well-known value.
+  @Value("${jwt.secret}")
   private String secret;
 
   @Value("${jwt.expiration:${JWT_EXPIRE:86400000}}")
