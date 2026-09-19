@@ -2,6 +2,8 @@ package com.example.spring_boot_project_api.dto.response.user;
 
 import java.time.LocalDateTime;
 
+import com.example.spring_boot_project_api.enums.RoleEnum;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,7 +20,7 @@ public class UserResponseDTO {
   private String email;
   private String phone;
   private String gender;
-  private String role;
+  private RoleEnum role;
   private String profilePicture;
   private Boolean active;
   private String authProvider;
