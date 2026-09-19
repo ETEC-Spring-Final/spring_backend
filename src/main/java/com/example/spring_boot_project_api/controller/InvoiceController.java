@@ -3,9 +3,13 @@ package com.example.spring_boot_project_api.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -14,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.spring_boot_project_api.dto.request.invoice.InvoicePaymentConfirmDTO;
+import com.example.spring_boot_project_api.dto.request.invoice.InvoicePaymentMethodDTO;
 import com.example.spring_boot_project_api.dto.request.invoice.InvoiceRequestDTO;
 import com.example.spring_boot_project_api.dto.response.invoice.InvoiceResponseDTO;
 import com.example.spring_boot_project_api.service.InvoiceService;
@@ -46,6 +51,27 @@ public class InvoiceController {
   public InvoiceResponseDTO confirmPayment(@PathVariable Long id,
       @Valid @RequestBody InvoicePaymentConfirmDTO dto) {
     return invoiceService.confirmPayment(id, dto);
+  }
+
+  @PatchMapping("/{id}/payment-method")
+  public InvoiceResponseDTO setPaymentMethod(@PathVariable Long id,
+      @Valid @RequestBody InvoicePaymentMethodDTO dto) {
+    return invoiceService.setPaymentMethod(id, dto);
+  }
+
+  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+  @PostMapping("/{id}/mark-paid")
+  public InvoiceResponseDTO markPaid(@PathVariable Long id) {
+    return invoiceService.markPaid(id);
+  }
+
+  @GetMapping(value = "/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> downloadInvoicePdf(@PathVariable Long id) {
+    byte[] pdf = invoiceService.downloadInvoicePdf(id);
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"invoice-" + id + ".pdf\"")
+        .contentType(MediaType.APPLICATION_PDF)
+        .body(pdf);
   }
 
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")

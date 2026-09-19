@@ -15,26 +15,28 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.spring_boot_project_api.dto.request.notification.NotificationRequestDTO;
 import com.example.spring_boot_project_api.dto.request.reservation.ReservationRequestDTO;
+import com.example.spring_boot_project_api.dto.response.additional_service.AdditionalServiceResponseDTO;
 import com.example.spring_boot_project_api.dto.response.reservation.ReservationResponseDTO;
 import com.example.spring_boot_project_api.enums.InvoiceStatusEnum;
 import com.example.spring_boot_project_api.enums.NotificationTypeEnum;
+import com.example.spring_boot_project_api.enums.PaymentMethodEnum;
 import com.example.spring_boot_project_api.enums.RentalStatusEnum;
 import com.example.spring_boot_project_api.enums.ReservationStatusEnum;
 import com.example.spring_boot_project_api.enums.RoleEnum;
+import com.example.spring_boot_project_api.model.AdditionalService;
 import com.example.spring_boot_project_api.model.Invoice;
 import com.example.spring_boot_project_api.model.Location;
 import com.example.spring_boot_project_api.model.Rental;
 import com.example.spring_boot_project_api.model.Reservation;
-import com.example.spring_boot_project_api.model.ReservationServices;
-import com.example.spring_boot_project_api.model.Services;
+import com.example.spring_boot_project_api.model.ReservationAdditionalService;
 import com.example.spring_boot_project_api.model.User;
 import com.example.spring_boot_project_api.model.Vehicle;
+import com.example.spring_boot_project_api.repository.AdditionalServiceRepository;
 import com.example.spring_boot_project_api.repository.InvoiceRepository;
 import com.example.spring_boot_project_api.repository.LocationRepository;
 import com.example.spring_boot_project_api.repository.RentalRepository;
+import com.example.spring_boot_project_api.repository.ReservationAdditionalServiceRepository;
 import com.example.spring_boot_project_api.repository.ReservationRepository;
-import com.example.spring_boot_project_api.repository.ReservationServicesRepository;
-import com.example.spring_boot_project_api.repository.ServiceRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
 import com.example.spring_boot_project_api.repository.VehicleRepository;
 import com.example.spring_boot_project_api.service.DiscountService;
@@ -50,8 +52,8 @@ public class ReservationServiceImpl implements ReservationService {
   private final VehicleRepository vehicleRepository;
   private final UserRepository userRepository;
   private final LocationRepository locationRepository;
-  private final ServiceRepository serviceRepository;
-  private final ReservationServicesRepository reservationServicesRepository;
+  private final AdditionalServiceRepository additionalServiceRepository;
+  private final ReservationAdditionalServiceRepository reservationAdditionalServiceRepository;
   private final RentalRepository rentalRepository;
   private final InvoiceRepository invoiceRepository;
   private final DiscountService discountService;
@@ -85,23 +87,25 @@ public class ReservationServiceImpl implements ReservationService {
     BigDecimal basePrice = vehicle.getPricePerDay().multiply(BigDecimal.valueOf(days));
 
     // Server-side add-ons + discount total (client values are ignored here).
-    List<ReservationServices> reservationServices = new ArrayList<>();
+    // Add-ons are priced PER DAY: each selected AdditionalService contributes
+    // pricePerDay × days to the subtotal (extra driver, GPS, child seat, etc.).
+    List<ReservationAdditionalService> addsOns = new ArrayList<>();
     BigDecimal servicesTotal = BigDecimal.ZERO;
     if (dto.getServiceIds() != null) {
       for (Long serviceId : dto.getServiceIds()) {
-        Services service = serviceRepository.findById(serviceId)
+        AdditionalService service = additionalServiceRepository.findById(serviceId)
             .orElseThrow(() -> new RuntimeException("Service not found"));
-        if (!Boolean.TRUE.equals(service.getIsActive())) {
+        if (!Boolean.TRUE.equals(service.getActive())) {
           throw new RuntimeException("Service is currently unavailable");
         }
-        BigDecimal priceAtBooking = service.getPrice();
-        servicesTotal = servicesTotal.add(priceAtBooking);
+        BigDecimal priceAtBooking = service.getPricePerDay();
+        servicesTotal = servicesTotal.add(priceAtBooking.multiply(BigDecimal.valueOf(days)));
 
-        ReservationServices rs = new ReservationServices();
-        rs.setService(service);
-        rs.setQuantity(1);
-        rs.setPriceAtBooking(priceAtBooking);
-        reservationServices.add(rs);
+        ReservationAdditionalService ras = new ReservationAdditionalService();
+        ras.setAdditionalService(service);
+        ras.setPricePerDayAtBooking(priceAtBooking);
+        ras.setQuantity(1);
+        addsOns.add(ras);
       }
     }
 
@@ -124,9 +128,9 @@ public class ReservationServiceImpl implements ReservationService {
 
     Reservation saved = reservationRepository.save(reservation);
 
-    for (ReservationServices rs : reservationServices) {
-      rs.setReservation(saved);
-      reservationServicesRepository.save(rs);
+    for (ReservationAdditionalService ras : addsOns) {
+      ras.setReservation(saved);
+      reservationAdditionalServiceRepository.save(ras);
     }
 
     // CUSTOMER bookings: auto-create the Rental + Invoice so the customer can
@@ -156,11 +160,13 @@ public class ReservationServiceImpl implements ReservationService {
       invoice.setInvoiceNumber(generateInvoiceNumber());
       invoice.setDueDate(dto.getReturnDateTime());
       invoice.setSubtotal(subtotal);
+      invoice.setAdditionalServicesTotal(servicesTotal);
       invoice.setDiscountAmount(discountAmount);
       invoice.setTaxAmount(BigDecimal.ZERO);
       invoice.setLateFee(BigDecimal.ZERO);
       invoice.setTotalAmount(totalPrice);
       invoice.setStatus(InvoiceStatusEnum.UNPAID);
+      invoice.setPaymentMethod(PaymentMethodEnum.KHQR);
 
       invoiceRepository.save(invoice);
 
@@ -298,12 +304,12 @@ public class ReservationServiceImpl implements ReservationService {
     BigDecimal servicesTotal = BigDecimal.ZERO;
     if (dto.getServiceIds() != null) {
       for (Long serviceId : dto.getServiceIds()) {
-        Services service = serviceRepository.findById(serviceId)
+        AdditionalService service = additionalServiceRepository.findById(serviceId)
             .orElseThrow(() -> new RuntimeException("Service not found"));
-        if (!Boolean.TRUE.equals(service.getIsActive())) {
+        if (!Boolean.TRUE.equals(service.getActive())) {
           throw new RuntimeException("Service is currently unavailable");
         }
-        servicesTotal = servicesTotal.add(service.getPrice());
+        servicesTotal = servicesTotal.add(service.getPricePerDay().multiply(BigDecimal.valueOf(days)));
       }
     }
 
@@ -325,6 +331,22 @@ public class ReservationServiceImpl implements ReservationService {
     reservation.setNotes(dto.getNotes());
 
     Reservation saved = reservationRepository.save(reservation);
+
+    // Keep the selected per-day add-ons in sync with the updated request.
+    reservationAdditionalServiceRepository.deleteByReservationId(saved.getId());
+    if (dto.getServiceIds() != null) {
+      for (Long serviceId : dto.getServiceIds()) {
+        AdditionalService service = additionalServiceRepository.findById(serviceId)
+            .orElseThrow(() -> new RuntimeException("Service not found"));
+        ReservationAdditionalService ras = new ReservationAdditionalService();
+        ras.setReservation(saved);
+        ras.setAdditionalService(service);
+        ras.setPricePerDayAtBooking(service.getPricePerDay());
+        ras.setQuantity(1);
+        reservationAdditionalServiceRepository.save(ras);
+      }
+    }
+
     return toResponse(saved);
   }
 
@@ -338,13 +360,28 @@ public class ReservationServiceImpl implements ReservationService {
   }
 
   private ReservationResponseDTO toResponse(Reservation r) {
+    List<ReservationAdditionalService> addsOns = reservationAdditionalServiceRepository.findByReservationId(r.getId());
+    List<AdditionalServiceResponseDTO> selectedServices = addsOns.stream()
+        .map(ras -> toAdditionalServiceResponse(ras.getAdditionalService()))
+        .toList();
+    long days = Duration.between(r.getPickUpDateTime(), r.getReturnDateTime()).toDays();
+    BigDecimal additionalServicesTotal = addsOns.stream()
+        .map(ras -> ras.getPricePerDayAtBooking().multiply(BigDecimal.valueOf(days)))
+        .reduce(BigDecimal.ZERO, BigDecimal::add)
+        .setScale(2, RoundingMode.HALF_UP);
+
     return new ReservationResponseDTO(
         r.getId(), r.getUser().getId(), r.getVehicle().getId(), r.getPickUpLocation().getId(),
         r.getReturnLocation().getId(), r.getPickUpDateTime(), r.getReturnDateTime(), r.getStatus(), r.getTotalPrice(),
         r.getDepositAmount(),
         r.getDiscountAmount(), r.getAdditionalCharges(), resolveRentalId(r), resolveInvoiceId(r), r.getNotes(),
         r.getCreatedAt(),
-        r.getUpdatedAt());
+        r.getUpdatedAt(), selectedServices, additionalServicesTotal);
+  }
+
+  private AdditionalServiceResponseDTO toAdditionalServiceResponse(AdditionalService s) {
+    return new AdditionalServiceResponseDTO(s.getId(), s.getName(), s.getNameKh(), s.getDescription(),
+        s.getPricePerDay(), s.getIcon(), s.getActive());
   }
 
   private Long resolveRentalId(Reservation r) {

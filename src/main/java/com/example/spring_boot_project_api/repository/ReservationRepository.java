@@ -28,4 +28,14 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
       @Param("excludedStatus") ReservationStatusEnum excludedStatus,
       @Param("pickUpDateTime") LocalDateTime pickUpDateTime,
       @Param("returnDateTime") LocalDateTime returnDateTime);
+
+  // Active reservations for a vehicle that still occupy the calendar:
+  // not cancelled, and the window hasn't fully ended yet (returnDateTime >= now).
+  @Query("SELECT r FROM Reservation r " +
+      "WHERE r.vehicle.id = :vehicleId " +
+      "AND r.status <> :excludedStatus " +
+      "AND r.returnDateTime >= :now")
+  List<Reservation> findActiveBookings(@Param("vehicleId") Long vehicleId,
+      @Param("excludedStatus") ReservationStatusEnum excludedStatus,
+      @Param("now") LocalDateTime now);
 }

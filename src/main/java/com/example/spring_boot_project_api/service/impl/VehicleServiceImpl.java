@@ -1,20 +1,25 @@
 package com.example.spring_boot_project_api.service.impl;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
 import com.example.spring_boot_project_api.dto.request.vehicle.VehicleRequestDTO;
+import com.example.spring_boot_project_api.dto.response.reservation.BookedDateDTO;
 import com.example.spring_boot_project_api.dto.response.vehicle.VehicleResponseDTO;
 import com.example.spring_boot_project_api.enums.CarTypeEnum;
 import com.example.spring_boot_project_api.enums.FuelTypeEnum;
+import com.example.spring_boot_project_api.enums.ReservationStatusEnum;
 import com.example.spring_boot_project_api.enums.TransmissionEnum;
 import com.example.spring_boot_project_api.model.Brand;
+import com.example.spring_boot_project_api.model.Reservation;
 import com.example.spring_boot_project_api.model.Vehicle;
 import com.example.spring_boot_project_api.model.VehicleImage;
 import com.example.spring_boot_project_api.repository.AttachmentRepository;
 import com.example.spring_boot_project_api.repository.BrandRepository;
+import com.example.spring_boot_project_api.repository.ReservationRepository;
 import com.example.spring_boot_project_api.repository.VehicleImageRepository;
 import com.example.spring_boot_project_api.repository.VehicleRepository;
 import com.example.spring_boot_project_api.service.VehicleService;
@@ -29,6 +34,7 @@ public class VehicleServiceImpl implements VehicleService {
   private final BrandRepository brandRepository;
   private final VehicleImageRepository vehicleImageRepository;
   private final AttachmentRepository attachmentRepository;
+  private final ReservationRepository reservationRepository;
 
   @Override
   public VehicleResponseDTO createVehicle(VehicleRequestDTO dto) {
@@ -127,6 +133,19 @@ public class VehicleServiceImpl implements VehicleService {
     }
 
     vehicleRepository.deleteById(id);
+  }
+
+  @Override
+  public List<BookedDateDTO> getBookedDates(Long vehicleId) {
+    if (!vehicleRepository.existsById(vehicleId)) {
+      throw new RuntimeException("Vehicle not found");
+    }
+
+    return reservationRepository
+        .findActiveBookings(vehicleId, ReservationStatusEnum.CANCELLED, LocalDateTime.now())
+        .stream()
+        .map(r -> new BookedDateDTO(r.getPickUpDateTime(), r.getReturnDateTime()))
+        .toList();
   }
 
   private VehicleResponseDTO toResponse(Vehicle v) {

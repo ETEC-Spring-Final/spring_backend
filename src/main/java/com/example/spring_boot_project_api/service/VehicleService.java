@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import com.example.spring_boot_project_api.dto.request.vehicle.VehicleRequestDTO;
+import com.example.spring_boot_project_api.dto.response.reservation.BookedDateDTO;
 import com.example.spring_boot_project_api.dto.response.vehicle.VehicleResponseDTO;
 import com.example.spring_boot_project_api.enums.CarTypeEnum;
 import com.example.spring_boot_project_api.enums.FuelTypeEnum;
@@ -16,7 +17,7 @@ public interface VehicleService {
 
   List<VehicleResponseDTO> getAllVehicles();
 
-  // FIX: replaces getAllVehiclesByBrand (dead code — had no controller
+  // FIX: replaces getAllVehiclesByBrand (was dead code — had no controller
   // endpoint). All params optional; pass null for whichever aren't filtered.
   List<VehicleResponseDTO> searchVehicles(
       Long brandId, CarTypeEnum type, TransmissionEnum transmission,
@@ -25,4 +26,12 @@ public interface VehicleService {
   VehicleResponseDTO updateVehicle(Long id, VehicleRequestDTO dto);
 
   void deleteVehicle(Long id);
+
+  /**
+   * Date windows already reserved for a vehicle (excluding cancelled
+   * bookings and windows that have fully ended). Powers the "unavailable
+   * dates" hints on the booking form. The authoritative overlap check stays
+   * server-side on reservation creation.
+   */
+  List<BookedDateDTO> getBookedDates(Long vehicleId);
 }

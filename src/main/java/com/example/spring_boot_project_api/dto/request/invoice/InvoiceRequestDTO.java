@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.example.spring_boot_project_api.enums.InvoiceStatusEnum;
+import com.example.spring_boot_project_api.enums.PaymentMethodEnum;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
@@ -36,5 +37,10 @@ public class InvoiceRequestDTO {
   @DecimalMin(value = "0.0", inclusive = true, message = "Late fee cannot be negative")
   private BigDecimal lateFee;
 
+  @DecimalMin(value = "0.0", inclusive = true, message = "Additional services total cannot be negative")
+  private BigDecimal additionalServicesTotal;
+
   private InvoiceStatusEnum status;
+
+  private PaymentMethodEnum paymentMethod;
 }

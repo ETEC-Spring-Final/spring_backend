@@ -22,7 +22,7 @@ public record BakongRequest(
 
   public BakongRequest {
     currency = currency == null ? KHQRCurrency.KHR : currency;
-    merchantName = merchantName == null ? "DEFAULT MERCHANT" : merchantName;
+    merchantName = merchantName == null ? "Car Rental System" : merchantName;
     merchantCity = merchantCity == null ? "PHNOM PENH" : merchantCity;
     merchantId = merchantId == null ? "DEFAULT MERCHANT ID" : merchantId;
     acquiringBank = acquiringBank == null ? "DEFAULT BANK" : acquiringBank;

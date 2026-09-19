@@ -11,11 +11,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.spring_boot_project_api.dto.request.invoice.InvoicePaymentConfirmDTO;
+import com.example.spring_boot_project_api.dto.request.invoice.InvoicePaymentMethodDTO;
 import com.example.spring_boot_project_api.dto.request.invoice.InvoiceRequestDTO;
 import com.example.spring_boot_project_api.dto.request.notification.NotificationRequestDTO;
 import com.example.spring_boot_project_api.dto.response.invoice.InvoiceResponseDTO;
 import com.example.spring_boot_project_api.enums.InvoiceStatusEnum;
 import com.example.spring_boot_project_api.enums.NotificationTypeEnum;
+import com.example.spring_boot_project_api.enums.PaymentMethodEnum;
 import com.example.spring_boot_project_api.enums.RoleEnum;
 import com.example.spring_boot_project_api.model.Invoice;
 import com.example.spring_boot_project_api.model.Rental;
@@ -24,6 +26,7 @@ import com.example.spring_boot_project_api.repository.InvoiceRepository;
 import com.example.spring_boot_project_api.repository.RentalRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
 import com.example.spring_boot_project_api.service.BakongService;
+import com.example.spring_boot_project_api.service.InvoicePdfService;
 import com.example.spring_boot_project_api.service.InvoiceService;
 import com.example.spring_boot_project_api.service.NotificationService;
 
@@ -37,6 +40,7 @@ public class InvoiceServiceImpl implements InvoiceService {
   private final RentalRepository rentalRepository;
   private final BakongService bakongService;
   private final NotificationService notificationService;
+  private final InvoicePdfService invoicePdfService;
 
   @Override
   public InvoiceResponseDTO createInvoice(InvoiceRequestDTO dto) {
@@ -51,6 +55,8 @@ public class InvoiceServiceImpl implements InvoiceService {
     BigDecimal discount = dto.getDiscountAmount() != null ? dto.getDiscountAmount() : BigDecimal.ZERO;
     BigDecimal tax = dto.getTaxAmount() != null ? dto.getTaxAmount() : BigDecimal.ZERO;
     BigDecimal lateFee = dto.getLateFee() != null ? dto.getLateFee() : BigDecimal.ZERO;
+    BigDecimal additionalServices = dto.getAdditionalServicesTotal() != null ? dto.getAdditionalServicesTotal()
+        : BigDecimal.ZERO;
 
     BigDecimal totalAmount = subtotal.subtract(discount).add(tax).add(lateFee);
 
@@ -59,11 +65,13 @@ public class InvoiceServiceImpl implements InvoiceService {
     invoice.setInvoiceNumber(generateInvoiceNumber());
     invoice.setDueDate(dto.getDueDate());
     invoice.setSubtotal(subtotal);
+    invoice.setAdditionalServicesTotal(additionalServices);
     invoice.setDiscountAmount(discount);
     invoice.setTaxAmount(tax);
     invoice.setLateFee(lateFee);
     invoice.setTotalAmount(totalAmount);
     invoice.setStatus(dto.getStatus() != null ? dto.getStatus() : InvoiceStatusEnum.UNPAID);
+    invoice.setPaymentMethod(dto.getPaymentMethod() != null ? dto.getPaymentMethod() : PaymentMethodEnum.KHQR);
 
     Invoice saved = invoiceRepository.save(invoice);
     return toResponse(saved);
@@ -72,15 +80,7 @@ public class InvoiceServiceImpl implements InvoiceService {
   @Override
   public InvoiceResponseDTO getInvoiceById(Long id) {
     Invoice invoice = invoiceRepository.findById(id).orElseThrow(() -> new RuntimeException("Invoice not found"));
-
-    User currentUser = getCurrentUser();
-    boolean isOwner = invoice.getRental().getUser().getId().equals(currentUser.getId());
-    boolean isStaff = currentUser.getRole() != RoleEnum.CUSTOMER;
-
-    if (!isOwner && !isStaff) {
-      throw new RuntimeException("You are not authorized to view this invoice");
-    }
-
+    assertCanView(invoice);
     return toResponse(invoice);
   }
 
@@ -111,17 +111,21 @@ public class InvoiceServiceImpl implements InvoiceService {
     BigDecimal discount = dto.getDiscountAmount() != null ? dto.getDiscountAmount() : BigDecimal.ZERO;
     BigDecimal tax = dto.getTaxAmount() != null ? dto.getTaxAmount() : BigDecimal.ZERO;
     BigDecimal lateFee = dto.getLateFee() != null ? dto.getLateFee() : BigDecimal.ZERO;
+    BigDecimal additionalServices = dto.getAdditionalServicesTotal() != null ? dto.getAdditionalServicesTotal()
+        : BigDecimal.ZERO;
 
     BigDecimal totalAmount = subtotal.subtract(discount).add(tax).add(lateFee);
 
     invoice.setRental(rental);
     invoice.setDueDate(dto.getDueDate());
     invoice.setSubtotal(subtotal);
+    invoice.setAdditionalServicesTotal(additionalServices);
     invoice.setDiscountAmount(discount);
     invoice.setTaxAmount(tax);
     invoice.setLateFee(lateFee);
     invoice.setTotalAmount(totalAmount);
     invoice.setStatus(dto.getStatus() != null ? dto.getStatus() : InvoiceStatusEnum.UNPAID);
+    invoice.setPaymentMethod(dto.getPaymentMethod() != null ? dto.getPaymentMethod() : PaymentMethodEnum.KHQR);
 
     Invoice saved = invoiceRepository.save(invoice);
     return toResponse(saved);
@@ -138,8 +142,8 @@ public class InvoiceServiceImpl implements InvoiceService {
 
   private InvoiceResponseDTO toResponse(Invoice i) {
     return new InvoiceResponseDTO(i.getId(), i.getRental().getId(), i.getInvoiceNumber(), i.getIssueDate(),
-        i.getDueDate(), i.getSubtotal(), i.getDiscountAmount(), i.getTaxAmount(), i.getLateFee(), i.getTotalAmount(),
-        i.getStatus(), i.getCreatedAt());
+        i.getDueDate(), i.getSubtotal(), i.getAdditionalServicesTotal(), i.getDiscountAmount(), i.getTaxAmount(),
+        i.getLateFee(), i.getTotalAmount(), i.getStatus(), i.getPaymentMethod(), i.getPaidAt(), i.getCreatedAt());
   }
 
   @Override
@@ -180,6 +184,87 @@ public class InvoiceServiceImpl implements InvoiceService {
     notificationService.createNotification(currentUser.getId(), notification);
 
     return toResponse(saved);
+  }
+
+  @Override
+  @Transactional
+  public InvoiceResponseDTO setPaymentMethod(Long id, InvoicePaymentMethodDTO dto) {
+    Invoice invoice = invoiceRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Invoice not found"));
+
+    User currentUser = getCurrentUser();
+    boolean isOwner = invoice.getRental().getUser().getId().equals(currentUser.getId());
+    boolean isStaff = currentUser.getRole() != RoleEnum.CUSTOMER;
+
+    if (!isOwner && !isStaff) {
+      throw new RuntimeException("You are not authorized to update this invoice");
+    }
+
+    if (invoice.getStatus() == InvoiceStatusEnum.PAID) {
+      throw new RuntimeException("This invoice is already paid");
+    }
+    if (invoice.getStatus() == InvoiceStatusEnum.CANCELLED) {
+      throw new RuntimeException("This invoice has been cancelled");
+    }
+
+    // Choosing CASH records intent only: the invoice stays UNPAID until a
+    // staff/admin member marks it PAID at pickup. KHQR keeps the QR flow.
+    invoice.setPaymentMethod(dto.paymentMethod());
+    if (dto.paymentMethod() == PaymentMethodEnum.CASH) {
+      invoice.setPaidAt(null);
+    }
+
+    Invoice saved = invoiceRepository.save(invoice);
+    return toResponse(saved);
+  }
+
+  @Override
+  @Transactional
+  public InvoiceResponseDTO markPaid(Long id) {
+    Invoice invoice = invoiceRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Invoice not found"));
+
+    if (invoice.getStatus() == InvoiceStatusEnum.PAID) {
+      return toResponse(invoice);
+    }
+    if (invoice.getStatus() == InvoiceStatusEnum.CANCELLED) {
+      throw new RuntimeException("Cannot mark a cancelled invoice as paid");
+    }
+
+    invoice.setStatus(InvoiceStatusEnum.PAID);
+    invoice.setPaidAt(LocalDateTime.now());
+    Invoice saved = invoiceRepository.save(invoice);
+
+    // CASH payments were never confirmed online — notify the customer that
+    // their in-person payment has been recorded.
+    if (saved.getPaymentMethod() == PaymentMethodEnum.CASH) {
+      User customer = saved.getRental().getUser();
+      NotificationRequestDTO notification = new NotificationRequestDTO();
+      notification.setType(NotificationTypeEnum.PAYMENT_SUCCESS);
+      notification.setTitle("Cash payment recorded");
+      notification.setMessage("Your cash payment for invoice " + saved.getInvoiceNumber() + " has been recorded. Thank you!");
+      notificationService.createNotification(customer.getId(), notification);
+    }
+
+    return toResponse(saved);
+  }
+
+  @Override
+  public byte[] downloadInvoicePdf(Long id) {
+    Invoice invoice = invoiceRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Invoice not found"));
+    assertCanView(invoice);
+    return invoicePdfService.generate(invoice);
+  }
+
+  private void assertCanView(Invoice invoice) {
+    User currentUser = getCurrentUser();
+    boolean isOwner = invoice.getRental().getUser().getId().equals(currentUser.getId());
+    boolean isStaff = currentUser.getRole() != RoleEnum.CUSTOMER;
+
+    if (!isOwner && !isStaff) {
+      throw new RuntimeException("You are not authorized to view this invoice");
+    }
   }
 
   // Generate Invoice Number

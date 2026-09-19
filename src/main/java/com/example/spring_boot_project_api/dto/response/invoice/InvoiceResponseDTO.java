@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.example.spring_boot_project_api.enums.InvoiceStatusEnum;
+import com.example.spring_boot_project_api.enums.PaymentMethodEnum;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,10 +23,13 @@ public class InvoiceResponseDTO {
   private LocalDateTime issueDate;
   private LocalDateTime dueDate;
   private BigDecimal subtotal;
+  private BigDecimal additionalServicesTotal;
   private BigDecimal discountAmount;
   private BigDecimal taxAmount;
   private BigDecimal lateFee;
   private BigDecimal totalAmount;
   private InvoiceStatusEnum status;
+  private PaymentMethodEnum paymentMethod;
+  private LocalDateTime paidAt;
   private LocalDateTime createdAt;
 }

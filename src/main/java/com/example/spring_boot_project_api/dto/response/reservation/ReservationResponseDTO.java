@@ -2,7 +2,9 @@ package com.example.spring_boot_project_api.dto.response.reservation;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
+import com.example.spring_boot_project_api.dto.response.additional_service.AdditionalServiceResponseDTO;
 import com.example.spring_boot_project_api.enums.ReservationStatusEnum;
 
 import lombok.AllArgsConstructor;
@@ -29,4 +31,6 @@ public class ReservationResponseDTO {
   private String notes;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
+  private List<AdditionalServiceResponseDTO> selectedServices;
+  private BigDecimal additionalServicesTotal;
 }

@@ -8,6 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.spring_boot_project_api.dto.request.vehicle.VehicleRequestDTO;
+import com.example.spring_boot_project_api.dto.response.reservation.BookedDateDTO;
 import com.example.spring_boot_project_api.dto.response.vehicle.VehicleResponseDTO;
 import com.example.spring_boot_project_api.enums.CarTypeEnum;
 import com.example.spring_boot_project_api.enums.FuelTypeEnum;
@@ -31,6 +32,14 @@ public class VehicleController {
   @GetMapping("/{id}")
   public VehicleResponseDTO getVehicleById(@PathVariable Long id) {
     return vehicleService.getVehicleById(id);
+  }
+
+  // Date windows already reserved for this vehicle (powers the "unavailable
+  // dates" hints on the booking form). Public read; the authoritative
+  // overlap check stays on reservation creation.
+  @GetMapping("/{id}/booked-dates")
+  public List<BookedDateDTO> getBookedDates(@PathVariable Long id) {
+    return vehicleService.getBookedDates(id);
   }
 
   // FIX: now actually applies the filters the frontend (Explore page) sends.

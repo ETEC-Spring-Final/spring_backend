@@ -41,7 +41,7 @@ public class CookieOAuth2AuthorizationRequestRepository
   public static final String COOKIE_NAME = "oauth2_auth_request";
   // The whole "redirect to provider, come straight back" round-trip should
   // take a few seconds, not minutes — keep this short-lived on purpose.
-  private static final int COOKIE_MAX_AGE_SECONDS = 180;
+  private static final int COOKIE_MAX_AGE_SECONDS = 300;
 
   @Override
   public OAuth2AuthorizationRequest loadAuthorizationRequest(HttpServletRequest request) {

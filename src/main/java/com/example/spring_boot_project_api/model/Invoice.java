@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.example.spring_boot_project_api.enums.InvoiceStatusEnum;
+import com.example.spring_boot_project_api.enums.PaymentMethodEnum;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -59,6 +60,10 @@ public class Invoice {
   private BigDecimal subtotal;
 
   @Builder.Default
+  @Column(name = "additional_services_total", nullable = false, precision = 10, scale = 2)
+  private BigDecimal additionalServicesTotal = BigDecimal.ZERO;
+
+  @Builder.Default
   @Column(name = "discount_amount", nullable = false, precision = 10, scale = 2)
   private BigDecimal discountAmount = BigDecimal.ZERO;
 
@@ -78,6 +83,14 @@ public class Invoice {
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false)
   private InvoiceStatusEnum status = InvoiceStatusEnum.UNPAID;
+
+  @Builder.Default
+  @Enumerated(EnumType.STRING)
+  @Column(name = "payment_method", nullable = false, length = 30)
+  private PaymentMethodEnum paymentMethod = PaymentMethodEnum.KHQR;
+
+  @Column(name = "paid_at")
+  private LocalDateTime paidAt;
 
   @CreationTimestamp
   @Column(name = "created_at", updatable = false)
