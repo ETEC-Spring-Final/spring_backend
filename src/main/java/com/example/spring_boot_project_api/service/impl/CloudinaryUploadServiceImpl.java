@@ -23,7 +23,7 @@ public class CloudinaryUploadServiceImpl implements CloudinaryUploadService {
   private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp");
   private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
   private static final Set<String> ALLOWED_FOLDERS = Set.of(
-      "vehicle-images", "profile-pictures", "site-settings", "avatars", "admin-profiles", "misc");
+      "vehicle-images", "brand-images", "profile-pictures", "site-settings", "avatars", "admin-profiles", "misc");
   private static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
   private static final String DEFAULT_FOLDER = "misc";
 

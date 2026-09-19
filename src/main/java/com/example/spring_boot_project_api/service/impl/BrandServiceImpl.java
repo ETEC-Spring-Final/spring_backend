@@ -3,12 +3,15 @@ package com.example.spring_boot_project_api.service.impl;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.example.spring_boot_project_api.dto.request.brand.BrandRequestDTO;
 import com.example.spring_boot_project_api.dto.response.brand.BrandResponseDTO;
+import com.example.spring_boot_project_api.dto.response.cloudinary.CloudinaryUploadResponseDTO;
 import com.example.spring_boot_project_api.model.Brand;
 import com.example.spring_boot_project_api.repository.BrandRepository;
 import com.example.spring_boot_project_api.service.BrandService;
+import com.example.spring_boot_project_api.service.CloudinaryUploadService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -16,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class BrandServiceImpl implements BrandService {
   private final BrandRepository brandRepository;
+  private final CloudinaryUploadService cloudinaryUploadService;
 
   @Override
   public BrandResponseDTO createBrand(BrandRequestDTO dto) {
@@ -59,6 +63,16 @@ public class BrandServiceImpl implements BrandService {
   }
 
   @Override
+  public BrandResponseDTO uploadBrandImage(Long id, MultipartFile image) {
+    Brand brand = brandRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Brand not found"));
+
+    CloudinaryUploadResponseDTO uploaded = cloudinaryUploadService.upload(image, "brand-images");
+    brand.setImageUrl(uploaded.url());
+    return toResponse(brandRepository.save(brand));
+  }
+
+  @Override
   public void deleteBrand(Long id) {
     if (!brandRepository.existsById(id)) {
       throw new RuntimeException("Brand not found");
@@ -67,6 +81,7 @@ public class BrandServiceImpl implements BrandService {
   }
 
   private BrandResponseDTO toResponse(Brand b) {
-    return new BrandResponseDTO(b.getId(), b.getName());
+    return new BrandResponseDTO(b.getId(), b.getName(), b.getImageUrl());
   }
+
 }
