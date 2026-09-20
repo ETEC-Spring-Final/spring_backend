@@ -19,7 +19,10 @@ import com.example.spring_boot_project_api.enums.RoleEnum;
 import com.example.spring_boot_project_api.model.User;
 import com.example.spring_boot_project_api.repository.UserRepository;
 import com.example.spring_boot_project_api.service.LoginHistoryService;
+import com.example.spring_boot_project_api.service.AuditLogService;
 import com.example.spring_boot_project_api.service.UserService;
+import com.example.spring_boot_project_api.enums.AuditActionEnum;
+import com.example.spring_boot_project_api.util.AuditLogContext;
 import com.example.spring_boot_project_api.util.JwtUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,6 +36,8 @@ public class UserServiceImpl implements UserService {
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
   private final LoginHistoryService loginHistoryService;
+  private final AuditLogService auditLogService;
+  private final AuditLogContext auditLogContext;
 
   @Override
   @Transactional
@@ -55,9 +60,12 @@ public class UserServiceImpl implements UserService {
 
     User saved = userRepository.save(user);
 
+    auditLogService.log(null, auditLogContext.clientIp(), AuditActionEnum.CREATE, "User", saved.getId(),
+        null, saved.getId(), "register");
+
     String token = jwtUtil.generateToken(saved);
 
-    return new AuthResponseDTO(saved.getId(), saved.getEmail(), saved.getRole().name(), token);
+    return new AuthResponseDTO(saved.getId(), saved.getEmail(), saved.getRole(), token);
   }
 
   @Override
@@ -77,7 +85,7 @@ public class UserServiceImpl implements UserService {
     loginHistoryService.recordLoginAttempt(user.getEmail(), true, ipAddress, device);
 
     String token = jwtUtil.generateToken(user);
-    return new AuthResponseDTO(user.getId(), user.getEmail(), user.getRole().name(), token);
+    return new AuthResponseDTO(user.getId(), user.getEmail(), user.getRole(), token);
   }
 
   // ===== New: Customer / User management =====
@@ -99,8 +107,12 @@ public class UserServiceImpl implements UserService {
   public UserResponseDTO updateUserRole(Long id, RoleEnum role) {
     User user = userRepository.findById(id)
         .orElseThrow(() -> new RuntimeException("User not found"));
+    RoleEnum oldRole = user.getRole();
     user.setRole(role);
-    return toResponseDTO(userRepository.save(user));
+    User saved = userRepository.save(user);
+    auditLogService.log(auditLogContext.currentUserId(), auditLogContext.clientIp(), AuditActionEnum.UPDATE,
+        "User", saved.getId(), oldRole, role, "updateUserRole");
+    return toResponseDTO(saved);
   }
 
   @Override
@@ -108,17 +120,21 @@ public class UserServiceImpl implements UserService {
   public UserResponseDTO setUserActive(Long id, boolean active) {
     User user = userRepository.findById(id)
         .orElseThrow(() -> new RuntimeException("User not found"));
+    Boolean oldActive = user.getActive();
     user.setActive(active);
-    return toResponseDTO(userRepository.save(user));
+    User saved = userRepository.save(user);
+    auditLogService.log(auditLogContext.currentUserId(), auditLogContext.clientIp(), AuditActionEnum.UPDATE,
+        "User", saved.getId(), oldActive, active, "setUserActive");
+    return toResponseDTO(saved);
   }
 
   @Override
   @Transactional
   public void deleteUser(Long id) {
-    if (!userRepository.existsById(id)) {
-      throw new RuntimeException("User not found");
-    }
+    User user = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
     userRepository.deleteById(id);
+    auditLogService.log(auditLogContext.currentUserId(), auditLogContext.clientIp(), AuditActionEnum.DELETE,
+        "User", id, user.getId(), null, "deleteUser");
   }
 
   // ===== New: "My Profile" self-service (admin/manager/staff) =====
@@ -143,7 +159,10 @@ public class UserServiceImpl implements UserService {
       user.setProfilePicture(dto.getProfilePicture());
     }
 
-    return toResponseDTO(userRepository.save(user));
+    User saved = userRepository.save(user);
+    auditLogService.log(auditLogContext.currentUserId(), auditLogContext.clientIp(), AuditActionEnum.UPDATE,
+        "User", saved.getId(), null, dto, "updateMyProfile");
+    return toResponseDTO(saved);
   }
 
   @Override
@@ -162,6 +181,8 @@ public class UserServiceImpl implements UserService {
 
     user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
     userRepository.save(user);
+    auditLogService.log(auditLogContext.currentUserId(), auditLogContext.clientIp(), AuditActionEnum.UPDATE,
+        "User", user.getId(), null, "password changed", "changePassword");
   }
 
   private UserResponseDTO toResponseDTO(User user) {
@@ -172,7 +193,7 @@ public class UserServiceImpl implements UserService {
         .email(user.getEmail())
         .phone(user.getPhone())
         .gender(user.getGender() != null ? user.getGender().name() : null)
-        .role(user.getRole().name())
+        .role(user.getRole())
         .profilePicture(user.getProfilePicture())
         .active(user.getActive())
         .authProvider(user.getAuthProvider() != null ? user.getAuthProvider().name() : null)

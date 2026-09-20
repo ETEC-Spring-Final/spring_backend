@@ -14,7 +14,6 @@ import com.example.spring_boot_project_api.enums.FuelTypeEnum;
 import com.example.spring_boot_project_api.enums.ReservationStatusEnum;
 import com.example.spring_boot_project_api.enums.TransmissionEnum;
 import com.example.spring_boot_project_api.model.Brand;
-import com.example.spring_boot_project_api.model.Reservation;
 import com.example.spring_boot_project_api.model.Vehicle;
 import com.example.spring_boot_project_api.model.VehicleImage;
 import com.example.spring_boot_project_api.repository.AttachmentRepository;

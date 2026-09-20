@@ -31,6 +31,13 @@ public class AuditLogServiceImpl implements AuditLogService {
   @Transactional
   public void log(Long userId, AuditActionEnum action, String entityName, Long entityId,
       Object oldValue, Object newValue, String description) {
+    log(userId, null, action, entityName, entityId, oldValue, newValue, description);
+  }
+
+  @Override
+  @Transactional
+  public void log(Long userId, String ipAddress, AuditActionEnum action, String entityName, Long entityId,
+      Object oldValue, Object newValue, String description) {
     try {
       User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
 
@@ -42,6 +49,7 @@ public class AuditLogServiceImpl implements AuditLogService {
           .oldValue(toJson(oldValue))
           .newValue(toJson(newValue))
           .description(description)
+          .ipAddress(ipAddress)
           .build();
 
       auditLogRepository.save(entry);
