@@ -48,4 +48,7 @@ public class SiteSettingsRequestDTO {
 
   @Size(max = 255, message = "Website URL must be under 255 characters")
   private String websiteUrl;
+
+  @Size(max = 500, message = "Auth background URL must be under 500 characters")
+  private String authBackgroundUrl;
 }

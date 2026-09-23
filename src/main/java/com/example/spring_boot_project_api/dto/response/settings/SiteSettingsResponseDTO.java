@@ -22,5 +22,6 @@ public class SiteSettingsResponseDTO {
   private String whatsappUrl;
   private String linkedinUrl;
   private String websiteUrl;
+  private String authBackgroundUrl;
   private LocalDateTime updatedAt;
 }

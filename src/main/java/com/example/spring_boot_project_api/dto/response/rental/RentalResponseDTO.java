@@ -15,6 +15,9 @@ public class RentalResponseDTO {
   private Long reservationId;
   private Long vehicleId;
   private Long userId;
+  private String customerName;   // ថ្មី
+  private String customerEmail;  // ថ្មី
+  private String customerPhone;  // ថ្មី
   private Long pickUpLocationId;
   private Long returnLocationId;
   private LocalDateTime pickUpDateTime;

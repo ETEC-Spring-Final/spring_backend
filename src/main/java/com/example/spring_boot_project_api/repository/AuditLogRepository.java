@@ -14,15 +14,15 @@ import com.example.spring_boot_project_api.model.AuditLog;
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
   @Query("SELECT a FROM AuditLog a WHERE " +
-      "(:entityName IS NULL OR LOWER(a.entityName) LIKE LOWER(CONCAT('%', :entityName, '%'))) AND " +
-      "(:userId IS NULL OR a.user.id = :userId) AND " +
-      "(:action IS NULL OR a.action = :action) " +
-      "ORDER BY a.createdAt DESC")
-  Page<AuditLog> search(
-      @Param("entityName") String entityName,
-      @Param("userId") Long userId,
-      @Param("action") AuditActionEnum action,
-      Pageable pageable);
+    "(:entityName IS NULL OR LOWER(a.entityName) LIKE LOWER(CONCAT('%', CAST(:entityName AS string), '%'))) AND " +
+    "(:userId IS NULL OR a.user.id = :userId) AND " +
+    "(:action IS NULL OR a.action = :action) " +
+    "ORDER BY a.createdAt DESC")
+Page<AuditLog> search(
+    @Param("entityName") String entityName,
+    @Param("userId") Long userId,
+    @Param("action") AuditActionEnum action,
+    Pageable pageable);
 
   Page<AuditLog> findByEntityNameIgnoreCaseAndEntityIdOrderByCreatedAtDesc(
       String entityName, Long entityId, Pageable pageable);

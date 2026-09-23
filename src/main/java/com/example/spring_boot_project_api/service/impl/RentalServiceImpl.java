@@ -97,8 +97,14 @@ public class RentalServiceImpl implements RentalService {
   public RentalResponseDTO updateRental(Long id, RentalRequestDTO dto) {
     Rental rental = rentalRepository.findById(id).orElseThrow(() -> new RuntimeException("Rental not found"));
 
-    rental.setDiscountAmount(dto.getDiscountAmount());
-    rental.setAdditionalCharges(dto.getAdditionalCharges());
+    // Only overwrite when the caller actually sent a value — otherwise a
+    // partial update would silently null out the existing discount/charges.
+    if (dto.getDiscountAmount() != null) {
+      rental.setDiscountAmount(dto.getDiscountAmount());
+    }
+    if (dto.getAdditionalCharges() != null) {
+      rental.setAdditionalCharges(dto.getAdditionalCharges());
+    }
     rental.setNotes(dto.getNotes());
 
     Rental saved = rentalRepository.save(rental);
@@ -124,7 +130,10 @@ public class RentalServiceImpl implements RentalService {
   }
 
   private RentalResponseDTO toResponse(Rental r) {
-    return new RentalResponseDTO(r.getId(), r.getReservation().getId(), r.getVehicle().getId(), r.getUser().getId(),
+    User u = r.getUser();
+    return new RentalResponseDTO(
+        r.getId(), r.getReservation().getId(), r.getVehicle().getId(), r.getUser().getId(),
+        u.getFirstName() + " " + u.getLastName(), u.getEmail(), u.getPhone(),
         r.getPickUpLocation().getId(), r.getReturnLocation().getId(), r.getPickUpDateTime(),
         r.getExpectedReturnDateTime(), r.getActualReturnDateTime(), r.getStatus(), r.getBasePrice(),
         r.getDiscountAmount(), r.getAdditionalCharges(), r.getLateFee(), r.getTotalPrice(), r.getNotes(),

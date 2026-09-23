@@ -56,7 +56,7 @@ public class SiteSettings {
   @Column(name = "facebook_url", length = 255)
   private String facebookUrl;
 
-    @Column(name = "telegram_url", length = 255)
+  @Column(name = "telegram_url", length = 255)
   private String telegramUrl;
 
   @Column(name = "instagram_url", length = 255)
@@ -74,8 +74,12 @@ public class SiteSettings {
   @Column(name = "website_url", length = 255)
   private String websiteUrl;
 
+  // Photo shown on the left side of the Login/Register pages (uploaded by admin)
+  @Column(name = "auth_background_url", length = 500)
+  private String authBackgroundUrl;
+
   @UpdateTimestamp
   @Column(name = "updated_at")
   private LocalDateTime updatedAt;
-  
+
 }

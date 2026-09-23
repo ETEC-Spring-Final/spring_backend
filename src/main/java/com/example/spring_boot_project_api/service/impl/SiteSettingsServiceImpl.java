@@ -33,6 +33,7 @@ public class SiteSettingsServiceImpl implements SiteSettingsService {
     settings.setSiteName(dto.getSiteName());
     settings.setLogoUrl(dto.getLogoUrl());
     settings.setFaviconUrl(dto.getFaviconUrl());
+    settings.setAuthBackgroundUrl(dto.getAuthBackgroundUrl());
     settings.setContactEmail(dto.getContactEmail());
     settings.setContactPhone(dto.getContactPhone());
     settings.setAddress(dto.getAddress());
@@ -57,6 +58,7 @@ public class SiteSettingsServiceImpl implements SiteSettingsService {
         .siteName("CarRental Admin")
         .logoUrl(null)
         .faviconUrl(null)
+        .authBackgroundUrl(null)
         .contactEmail(null)
         .contactPhone(null)
         .address(null)
@@ -80,6 +82,7 @@ public class SiteSettingsServiceImpl implements SiteSettingsService {
         s.getFacebookUrl(), s.getTelegramUrl(),
         s.getInstagramUrl(), s.getTiktokUrl(), s.getWhatsappUrl(),
         s.getLinkedinUrl(), s.getWebsiteUrl(),
+        s.getAuthBackgroundUrl(),
         s.getUpdatedAt());
   }
 }

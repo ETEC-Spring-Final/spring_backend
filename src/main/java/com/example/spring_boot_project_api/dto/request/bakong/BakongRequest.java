@@ -21,7 +21,7 @@ public record BakongRequest(
     String merchantCityAlternateLanguage) {
 
   public BakongRequest {
-    currency = currency == null ? KHQRCurrency.USD : currency;
+    currency = currency == null ? KHQRCurrency.KHR : currency;
     merchantName = merchantName == null ? "Car Rental System" : merchantName;
     merchantCity = merchantCity == null ? "PHNOM PENH" : merchantCity;
     merchantId = merchantId == null ? "DEFAULT MERCHANT ID" : merchantId;

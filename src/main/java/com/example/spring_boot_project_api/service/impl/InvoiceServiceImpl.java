@@ -58,7 +58,8 @@ public class InvoiceServiceImpl implements InvoiceService {
     BigDecimal additionalServices = dto.getAdditionalServicesTotal() != null ? dto.getAdditionalServicesTotal()
         : BigDecimal.ZERO;
 
-    BigDecimal totalAmount = subtotal.subtract(discount).add(tax).add(lateFee);
+    // FIX: additionalServices was missing from the total.
+    BigDecimal totalAmount = subtotal.add(additionalServices).subtract(discount).add(tax).add(lateFee);
 
     Invoice invoice = new Invoice();
     invoice.setRental(rental);
@@ -114,7 +115,8 @@ public class InvoiceServiceImpl implements InvoiceService {
     BigDecimal additionalServices = dto.getAdditionalServicesTotal() != null ? dto.getAdditionalServicesTotal()
         : BigDecimal.ZERO;
 
-    BigDecimal totalAmount = subtotal.subtract(discount).add(tax).add(lateFee);
+    // FIX: additionalServices was missing from the total.
+    BigDecimal totalAmount = subtotal.add(additionalServices).subtract(discount).add(tax).add(lateFee);
 
     invoice.setRental(rental);
     invoice.setDueDate(dto.getDueDate());
@@ -141,7 +143,11 @@ public class InvoiceServiceImpl implements InvoiceService {
   }
 
   private InvoiceResponseDTO toResponse(Invoice i) {
-    return new InvoiceResponseDTO(i.getId(), i.getRental().getId(), i.getInvoiceNumber(), i.getIssueDate(),
+    User u = i.getRental().getUser();
+    return new InvoiceResponseDTO(
+        i.getId(), i.getRental().getId(),
+        u.getFirstName() + " " + u.getLastName(), u.getEmail(), u.getPhone(),
+        i.getInvoiceNumber(), i.getIssueDate(),
         i.getDueDate(), i.getSubtotal(), i.getAdditionalServicesTotal(), i.getDiscountAmount(), i.getTaxAmount(),
         i.getLateFee(), i.getTotalAmount(), i.getStatus(), i.getPaymentMethod(), i.getPaidAt(), i.getCreatedAt());
   }
